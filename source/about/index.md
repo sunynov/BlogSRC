@@ -8,9 +8,9 @@ layout: about
 ## 个人简介
 
 大一萌新，一只喜欢瞎搞的技术菜鸡。<br>
-![](https://github-readme-stats.vercel.app/api?username=sunynov)
+![](https://github-readme-stats.vercel.app/api?username=sunynov#pic_left)
 
-![Top Langs](https://github-readme-stats.vercel.app/api/top-langs/?username=sunynov&layout=compact&theme=flag-india)
+![](https://github-readme-stats.vercel.app/api/top-langs/?username=sunynov&layout=compact&theme=flag-india#pic_left)
 
 
 ## 联系我
