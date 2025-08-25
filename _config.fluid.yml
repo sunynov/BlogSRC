@@ -446,6 +446,8 @@ footer:
   # 页脚第一行文字的 HTML，建议保留 Fluid 的链接，用于向更多人推广本主题
   # HTML of the first line of the footer, it is recommended to keep the Fluid link to promote this theme to more people
   content: '
+    <a href="https://icp.gov.moe/?keyword=20250279" target="_blank">萌ICP备20250279号</a>
+    <br>
     <a href="https://hexo.io" target="_blank" rel="nofollow noopener"><span>Hexo</span></a>
     <i class="iconfont icon-love"></i>
     <a href="https://github.com/fluid-dev/hexo-theme-fluid" target="_blank" rel="nofollow noopener"><span>Fluid</span></a>
@@ -1039,7 +1041,18 @@ links:
       link: "https://blog.libfsx.org/",
       avatar: "https://blog.libfsx.org/img/avatar.png"
     }
-    
+    - {
+      title: " SugarMGP ",
+      intro: "SugarMGP's Blog",
+      link: "https://blog.sugarmgp.icu/",
+      avatar: "https://blog.sugarmgp.icu/img/icon.png"
+    }
+    - {
+      title: " Kitra 的遐想空间",
+      intro: " Kitra 's Blog",
+      link: "https://blog.kitramgp.cn/",
+      avatar: "https://blog.kitramgp.cn/img/kitra1.jpg"
+    }
 
   # 当成员头像加载失败时，替换为指定图片
   # When the member avatar fails to load, replace the specified image
