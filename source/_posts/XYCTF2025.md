@@ -1,8 +1,8 @@
 ---
-title: XYCTF2025&furryCTF2025
+title: XYCTF2025
 date: 2026-03-13 18:01:47
 tags:
-index_img: https://gitee.com/bobrocket/img/raw/master/20260316-203737-7f3da3.jpeg
+index_img: https://i0.hdslb.com/bfs/article/f01d2db1f6e324fa7e1d5b7295c8c21600c3ed2b.png@1256w_754h_!web-article-pic.avif
 categories: CTF
 ---
 

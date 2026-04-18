@@ -2,6 +2,8 @@
 title: DSBCTF单身杯
 date: 2026-03-19 11:21:55
 tags:
+index_img: https://i0.hdslb.com/bfs/article/4b6bfa9c7ec7af33001e968f28175f97f1cb238a.jpg@1256w_708h_!web-article-pic.avif
+categories: CTF
 ---
 
 ## 好玩的PHP
