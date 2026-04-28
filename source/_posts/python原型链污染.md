@@ -320,7 +320,7 @@ def create(kon="Kon", pure="Pure", *, confirm=False):
 
 贴一下官方wp
 
-此处是要污染**heaven.py**的**create**函数的**__kwdefaults__**属性，该属性存储的是仅关键字参数，即位于*****之后的参数。由于**create**函数在另一个模块中，我们需要利用**sys**模块的**modules**属性来获取到**heaven.py**，但是代码中并没有导入**sys**模块。那么该怎么获取到这个模块呢？在python中存在着**__spec__**内置属性，包含了关于类加载时的信息，定义在Lib/importlib/_bootstrap.py的类ModuleSpec，所以可以直接采用`<模块名>.__spec__.__init__.__globals__['sys']`获取到sys模块，此处就可以使用json模块获取
+此处是要污染heaven.py的create函数的kwdefaults属性，该属性存储的是仅关键字参数，即位于*之后的参数。由于create函数在另一个模块中，我们需要利用sys模块的modules属性来获取到heaven.py，但是代码中并没有导入sys模块。那么该怎么获取到这个模块呢？在python中存在着spec内置属性，包含了关于类加载时的信息，定义在Lib/importlib/_bootstrap.py的类ModuleSpec，所以可以直接采用`<模块名>.__spec__.__init__.__globals__['sys']`获取到sys模块，此处就可以使用json模块获取
 
 ```json
 {
@@ -358,7 +358,7 @@ def create(kon="Kon", pure="Pure", *, confirm=False):
     "__init__":{
         "__globals__":{
             "app":{
-                "_static_folder":"./"
+                "_static_folder":"/"
             }
         }
     }

