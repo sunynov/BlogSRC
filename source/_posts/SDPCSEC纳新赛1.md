@@ -2,7 +2,6 @@
 title: SDPCSEC纳新赛1.0
 date: 2025-12-20 17:48:05
 tags:
-index_img: https://gitee.com/bobrocket/img/raw/master/img/69493c53c154427986d9eed9.png
 categories: CTF
 ---
 

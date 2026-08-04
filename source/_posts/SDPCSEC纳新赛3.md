@@ -2,7 +2,6 @@
 title: SDPCSEC纳新赛3.0
 date: 2026-03-28 21:20:41
 tags:
-index_img: https://gitee.com/bobrocket/img/raw/master/img/69493c53c154427986d9eed9.png
 categories: CTF
 ---
 # web
@@ -254,6 +253,18 @@ flask框架，邮箱的地方存在ssti，但是邮箱地址不让有小括号�
 找到一条能读敏感信息的链子
 
 ![image-20260329172406361](https://gitee.com/bobrocket/img/raw/master/image-20260329172406361.png)
+
+一个月之后的4.29
+
+问了一下师哥还是从邮箱格式上突破小括号的限制
+
+```
+"{{lipsum.__globals__.os.popen('cat /flag').read()}}" <a@b.com>
+```
+
+其实当时我问gemini然后它告诉我了这种格式但是没说要加双引号，哈基米怎么这样
+
+![image-20260429134311004](https://gitee.com/bobrocket/img/raw/master/image-20260429134311004.png)
 
 ## thinking...
 

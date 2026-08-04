@@ -2,7 +2,6 @@
 title: SSRF漏洞
 date: 2026-02-06 13:56:58
 tags:
-index_img: https://gitee.com/bobrocket/img/raw/master/img/image-20260210230031954.png
 categories: CTF
 ---
 

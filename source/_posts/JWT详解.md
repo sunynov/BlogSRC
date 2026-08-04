@@ -2,7 +2,6 @@
 title: JWT详解
 date: 2025-12-29 20:26:02
 tags:
-index_img: https://gitee.com/bobrocket/img/raw/master/img/image-20260304215722498.png
 categories: CTF
 ---
 

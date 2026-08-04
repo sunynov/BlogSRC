@@ -2,7 +2,6 @@
 title: python原型链污染
 date: 2026-02-13 11:27:15
 tags:
-index_img: https://gitee.com/bobrocket/img/raw/master/img/image-20260304222946794.png
 categories: CTF
 ---
 

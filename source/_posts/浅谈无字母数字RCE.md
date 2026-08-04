@@ -2,7 +2,6 @@
 title: 浅谈无字母数字RCE
 date: 2026-01-07 15:52:36
 tags:
-index_img: https://gitee.com/bobrocket/img/raw/master/img/6961081614866864fecd3f45.png
 categories: CTF
 ---
 
@@ -204,7 +203,7 @@ if(strlen($code) > 14){
 ?>
 ```
 
-这个暂时还没想出来怎么做
+
 
 ## 参考文献及其他方法
 

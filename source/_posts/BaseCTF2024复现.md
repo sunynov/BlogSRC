@@ -2,7 +2,6 @@
 title: BaseCTF2024复现
 date: 2025-11-30 14:16:42
 tags:
-index_img: https://gitee.com/bobrocket/img/raw/master/img/693e4869284ce2d2dc0fc6d2.jpg
 categories: CTF
 ---
 
@@ -565,4 +564,10 @@ for i in range(45):
             flag += chr(j)
 print(flag)
 ```
+
+
+
+
+
+
 

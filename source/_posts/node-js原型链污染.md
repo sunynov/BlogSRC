@@ -2,7 +2,6 @@
 title: nodejs原型链污染
 date: 2026-03-04 18:10:19
 tags:
-index_img: https://gitee.com/bobrocket/img/raw/master/image-20260316204350339.png
 categories: CTF
 ---
 
@@ -82,6 +81,8 @@ app.post('/register', (req, res) => {
 ![image-20260307203950831](https://gitee.com/bobrocket/img/raw/master/img/image-20260307203950831.png)
 
 ### [GYCTF2020]Ez_Express
+
+考点：javascript大小写特性，nodejs原型链污染
 
 进去是一个注册登录页面，扫一下目录发现有www.zip
 
@@ -191,3 +192,42 @@ EJS 会使用 `escapeFunction` 来处理模板中的变量。如果污染这个�
 }
 ```
 
+### 思考
+
+#### 1.本题是如何实现污染的
+
+```python
+const clone = (a) => {
+  return merge({}, a);
+}
+```
+
+这里我一下看懵了，第一个参数怎么是一个空字典？后来反应过来字典也是一个object啊
+
+#### 2.`res.outputFunctionName`来自哪里
+
+![image-20260506204818812](https://gitee.com/bobrocket/img/raw/master/image-20260506204818812.png)
+
+那么这里的`res.outputFunctionName`是没有定义的，所以会向上去原型链查找
+
+#### 3.为什么res和{}的原型对象会有联系
+
+在表面上看，`对象 A` 和 `对象 B` 在内存中是独立的：
+
+JavaScript
+
+```
+let a = { name: "Alice" };
+let b = { name: "Bob" };
+```
+
+这两个对象确实互不干扰。但是，它们都有一根隐形的“线”连向同一个地方：
+
+- `a.__proto__` → 指向 `Object.prototype`
+- `b.__proto__` → 指向 `Object.prototype`
+
+原型链污染（Prototype Pollution）的逻辑是：
+
+- 攻击者找到一个像 `merge` 这样的函数。
+- 通过 `对象 A` 顺着这根“线”爬上去，修改了**公共祖先** `Object.prototype`。
+- 因为 `对象 B` 也连着这个祖先，所以 `对象 B` 瞬间也拥有了攻击者注入的属性。

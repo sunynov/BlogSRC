@@ -2,7 +2,6 @@
 title: XXE漏洞入门
 date: 2026-02-14 18:12:36
 tags:
-index_img: https://gitee.com/bobrocket/img/raw/master/img/image-20260304222831454.png
 categories: CTF
 ---
 

@@ -2,13 +2,12 @@
 title: Pyjail沙箱逃逸
 date: 2026-03-23 19:03:14
 tags:
-index_img: https://i0.hdslb.com/bfs/article/a2388e1e8d754893e5b204d95da21cebfc1f5684.png@1256w_754h_!web-article-pic.avif
 categories: CTF
 ---
 
-## 引子
+# 引子
 
-### [SHCTF_3rd]Eazy_Pyrunner
+## [SHCTF_3rd]Eazy_Pyrunner
 
 通过任意文件读取漏洞我们可以读到源代码
 
@@ -159,7 +158,7 @@ def len(x):return 0
 def is_my_love_event(x):return TRUE
 ```
 
-#### 方法一（恢复os模块）
+### 方法一（恢复os模块）
 
 下面我们用typhon绕一下WAF
 

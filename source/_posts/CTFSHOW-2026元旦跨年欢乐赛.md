@@ -2,7 +2,6 @@
 title: CTFSHOW-2026元旦跨年欢乐赛
 date: 2026-01-08 10:52:59
 tags:
-index_img: https://gitee.com/bobrocket/img/raw/master/img/696107bb14866864fecd3f3a.png
 categories: CTF
 ---
 

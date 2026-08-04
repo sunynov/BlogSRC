@@ -2,11 +2,8 @@
 title: PolarCTF2026春季赛
 date: 2026-03-20 21:15:49
 tags:
-index_img: https://gitee.com/bobrocket/img/raw/master/image-20260331151544965.png
 categories: CTF
 ---
-
-平台和💩一样
 
 ## 新年贺卡
 

@@ -2,7 +2,6 @@
 title: SSTI入门
 date: 2026-02-01 12:12:54
 tags:
-index_img: https://gitee.com/bobrocket/img/raw/master/img/image-20260210225443510.png
 categories: CTF
 ---
 
