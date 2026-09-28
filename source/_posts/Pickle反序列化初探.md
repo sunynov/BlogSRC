@@ -1,8 +1,10 @@
 ---
-title: Pickle反序列化初探
+title: "Pickle反序列化初探"
 date: 2026-05-08 20:03:31
 tags:
 categories: CTF
+theme: default
+themeName: "默认主题"
 ---
 
 第三次纳新有一个pickle反序列化，现在我们来系统学习一下
@@ -198,8 +200,6 @@ OBJ(GLOBAL('os', 'system'), 'whoami')
 ### 打法二：修改变量
 
 可以参考第三次纳新
-
-## Bypass
 
 
 
